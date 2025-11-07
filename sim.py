@@ -1,4 +1,4 @@
-"""
+""" 
 Social Computing / Decentralized AI — Agent‑Based Belief Dynamics with Mesa
 --------------------------------------------------------------------------
 A single-file, headless (CLI) Mesa model you can run immediately to simulate
