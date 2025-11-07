@@ -1,4 +1,4 @@
-""" 
+"""
 Social Computing / Decentralized AI — Agent‑Based Belief Dynamics with Mesa
 --------------------------------------------------------------------------
 A single-file, headless (CLI) Mesa model you can run immediately to simulate
@@ -46,6 +46,7 @@ from mesa import Agent, Model
 from mesa.time import RandomActivation
 from mesa.space import NetworkGrid
 from mesa.datacollection import DataCollector
+# from model import SocialBeliefModel
 
 # -------------------------------
 # Helpers
@@ -87,7 +88,6 @@ def assortativity_by_belief_bins(G: nx.Graph, beliefs: Dict[int, float], bins: i
         return nx.attribute_assortativity_coefficient(G, "belief_cat")
     except Exception:
         return float("nan")
-
 
 # -------------------------------
 # Agent
@@ -161,7 +161,6 @@ class SocialAgent(Agent):
         # Stubbornness damps motion toward target
         new_belief = self.belief + (1.0 - self.stubbornness) * (target - self.belief)
         self.belief = clip_belief(new_belief)
-
 
 # -------------------------------
 # Model
@@ -301,7 +300,6 @@ class SocialBeliefModel(Model):
             agent_df = pd.DataFrame(agent_rows, columns=["step", "agent_id", "belief"])
             agent_df.to_csv(agent_log_path, index=False)
         return model_df, agent_df
-
 
 # -------------------------------
 # CLI entry
