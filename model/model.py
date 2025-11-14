@@ -7,9 +7,30 @@ from mesa import Model
 from mesa.space import NetworkGrid
 from mesa.datacollection import DataCollector
 
+
 from .agent import SocialAgent
 from .utils import mixture_beliefs, clip_belief, assortativity_by_belief_bins
 
+from configs.credibility_influence_configs import (
+    HIGH_CRED_FRACTION,
+    HIGH_CREDIBILITY,
+    LOW_CREDIBILITY
+)
+
+def gini(values):
+        arr = np.array(values)
+        if np.all(arr == 0):
+            return 0.0
+        arr = arr.flatten()
+        arr = np.sort(arr)
+        n = len(arr)
+        cumulative = np.cumsum(arr)
+        return (n + 1 - 2 * np.sum(cumulative) / cumulative[-1]) / n
+
+def rank_top_fraction(arr, frac=0.1):
+    arr = np.array(arr)
+    threshold = np.quantile(arr, 1 - frac)
+    return arr >= threshold
 
 class SocialBeliefModel(Model):
     def __init__(
@@ -25,11 +46,14 @@ class SocialBeliefModel(Model):
         tolerance_jitter: float = 0.05,
         k_exposures: int = 8,
         beta: float = 3.0, # similarity bias for curated feeds
+        high_credibility: float = HIGH_CREDIBILITY,
+        low_credibility: float = LOW_CREDIBILITY,
+        high_cred_fraction: float = HIGH_CRED_FRACTION,
+
     ):
-        # Mesa 3.x requires explicit super init; seed handled here
+        # Should create self.random, self._agents, self.schedule and self._next_id if I understand correctly
         super().__init__(seed=seed)
 
-            # Reproducibility for numpy and stdlib random if user passes seed
         if seed is not None:
             np.random.seed(seed)
             random.seed(seed)
@@ -40,6 +64,10 @@ class SocialBeliefModel(Model):
         self.avg_degree = avg_degree
         self.k_exposures = k_exposures
         self.beta = beta
+        self.high_credibility = high_credibility
+        self.low_credibility = low_credibility
+        self.high_cred_fraction = high_cred_fraction
+
 
         # Construct graph
         self.G = self._make_graph()
@@ -49,33 +77,94 @@ class SocialBeliefModel(Model):
         init_beliefs = mixture_beliefs(N, seed)
         tol_vals = np.clip(np.random.normal(tolerance, tolerance_jitter, N), 0.01, 1.0)
 
-        # Create agents and place them (agents are auto-registered with the model)
+        # Precompute centrality for influence initialization
+        centrality = nx.betweenness_centrality(self.G, normalized=True)
+
+        # Pick which 10% of agents get high credibility
+        num_high_cred = int(self.high_cred_fraction * N)
+        high_cred_agents = set(self.random.sample(range(N), num_high_cred))
+
+        
+        # ------------------------------------------------------------------------------
+        # Create agents with correct data and place on network grid
+        # ------------------------------------------------------------------------------
+        
         for i in range(N):
             a = SocialAgent(
-                model=self,
+                model=self, 
+                # NOTE:
+                # Passing `model=self` triggers the Mesa Agent constructor,
+                # which automatically registers the agent in model._agents.
+                # The default BaseScheduler (created by Model.__init__) steps
+                # all agents in model._agents, so explicit schedule.add(a)
+                # is NOT required unless we switch to another scheduler type (e.g. RandomActivation).
                 node_id=i,
                 belief=float(init_beliefs[i]),
                 tolerance=float(tol_vals[i]),
                 openness=float(openness),
                 stubbornness=float(stubbornness),
             )
-            # Place on the graph node with same index
+
+            # --- Assign credibility ---
+            if i in high_cred_agents:
+                a.credibility = self.high_credibility      # trusted expert
+            else:
+                a.credibility = self.low_credibility       # normal person
+
+            # --- Assign initial influence from centrality ---
+            a.base_centrality = float(centrality[i])
+            a.influence = float(centrality[i])   # start with the same value
+
+            # Place agent on its graph node
             self.grid.place_agent(a, i)
 
-        # Data collection
+        # ------------------------------------------------------------------------------
+        # Data Collection (Updated for Ethan Experiment)
+        # ------------------------------------------------------------------------------
         self.datacollector = DataCollector(
             model_reporters={
                 "step": lambda m: m.step_count,
+
+                # Belief dynamics
                 "mean_belief": lambda m: float(np.mean([ag.belief for ag in m.agents])),
                 "polarization_var": lambda m: float(np.var([ag.belief for ag in m.agents])),
-                "share_extremes": lambda m: float(np.mean([abs(ag.belief) >= 0.9 for ag in m.agents])),
+
+                # Assortativity (homophily)
                 "assortativity": lambda m: assortativity_by_belief_bins(
                     m.G, {ag.node_id: ag.belief for ag in m.agents}
                 ),
+
+                # Extremism
+                "share_extremes": lambda m: float(np.mean([abs(ag.belief) >= 0.9 for ag in m.agents])),
+
+                # -----------------
+                # Influence metrics
+                # -----------------
+                "mean_influence": lambda m: float(np.mean([ag.influence for ag in m.agents])),
+                "var_influence": lambda m: float(np.var([ag.influence for ag in m.agents])),
+                "mean_cred_weighted_influence": lambda m: float(
+                    np.mean([ag.influence * ag.credibility for ag in m.agents])
+                ),
+
+                # Gini coefficient of influence (inequality)
+                "influence_gini": lambda m: gini([ag.influence for ag in m.agents]),
+
+                # Fraction of agents in top 10% influence
+                "elite_fraction": lambda m: float(
+                    np.mean(rank_top_fraction([ag.influence for ag in m.agents], frac=self.high_cred_fraction))
+                ),
+
                 "regime": lambda m: m.graph_regime,
             },
-            agent_reporters={"belief": lambda a: a.belief},
+
+            # Agent-level reporters
+            agent_reporters={
+                "belief": lambda a: a.belief,
+                "influence": lambda a: a.influence,
+                "credibility": lambda a: a.credibility,
+            }
         )
+        # ------------------------------------------------------------------------------
 
         # Maintain original step indexing behavior
         self.step_count = 0
@@ -117,7 +206,6 @@ class SocialBeliefModel(Model):
 
         raise ValueError(f"Unknown graph regime: {self.graph_regime}")
 
-    # ---------- Utilities ----------
     def agent_belief(self, node_id: int) -> float:
         # In NetworkGrid, multiple agents can occupy a node, but we place 1:1
         # So, find the agent at node id == node_id
@@ -126,28 +214,24 @@ class SocialBeliefModel(Model):
             return 0.0
         return cell_agents[0].belief
 
-    # ---------- Simulation loop ----------
     def step(self):
-        # Collect BEFORE updates (keeps original CSV semantics)
+        # Collect BEFORE updates
         self.datacollector.collect(self)
 
-        # Mesa 3.x: replace scheduler with AgentSet activation
-        # RandomActivation → agents.shuffle_do("step")
         self.agents.shuffle_do("step")
 
-        # Maintain original counter
         self.step_count += 1
 
     def run(self, steps: Optional[int] = None, agent_log_path: Optional[str] = None) -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
         steps = steps if steps is not None else self.steps_target
         agent_rows: List[Tuple[int, int, float]] = []
         for t in range(steps):
-            # Optional per-agent logging (before update to log current state)
+            # Optional per-agent logging 
             if agent_log_path is not None:
                 for a in self.agents:
                     agent_rows.append((t, a.unique_id, a.belief))
             self.step()
-        # Final collect (post-final state)
+        # Final collect
         self.datacollector.collect(self)
         model_df = self.datacollector.get_model_vars_dataframe().reset_index(drop=True)
         agent_df = None

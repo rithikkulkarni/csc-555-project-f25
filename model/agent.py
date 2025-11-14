@@ -7,15 +7,15 @@ from .utils import clip_belief
 
 class SocialAgent(Agent):
     def __init__(self, model, node_id, belief, tolerance, openness, stubbornness):
-        # Mesa 3.x: unique_id is auto-assigned; call super with just model
         super().__init__(model)
         self.node_id = int(node_id) # graph node this agent occupies
         self.belief = float(belief)
         self.tolerance = float(tolerance) # max distance they'll consider
         self.openness = float(openness) # weight put on peers vs self
         self.stubbornness = float(stubbornness) # slows movement toward target
-
-    # --- Exposure policies ---
+        self.credibility: float     # fixed over time (e.g. 0.2 vs 0.9)
+        self.influence: float       # dynamic, updated each round
+        self.base_centrality: float # from betweenness
     def sample_exposures(self) -> List[int]:
         G = self.model.G
         k = self.model.k_exposures
@@ -54,17 +54,44 @@ class SocialAgent(Agent):
         peers = self.sample_exposures()
         if not peers:
             return
-        peer_beliefs = [self.model.agent_belief(pid) for pid in peers]
 
-        # Bounded confidence filter: consider only peers within tolerance
-        close_peers = [b for b in peer_beliefs if abs(b - self.belief) <= self.tolerance]
-        if not close_peers:
+        # Convert to agent objects
+        peer_agents = [
+            self.model.grid.get_cell_list_contents([pid])[0]
+            for pid in peers
+        ]
+
+        # Bounded confidence
+        close_peer_agents = [
+            ag for ag in peer_agents
+            if abs(ag.belief - self.belief) <= self.tolerance
+        ]
+        if not close_peer_agents:
             return
 
-        # DeGroot-style target: convex combo of self and mean of considered peers
-        mean_peer = float(np.mean(close_peers))
-        target = (1.0 - self.openness) * self.belief + self.openness * mean_peer
+        # Credibility × Influence weighting
+        weights = np.array([ag.influence * ag.credibility for ag in close_peer_agents])
+        weights = weights / weights.sum()
 
-        # Stubbornness damps motion toward target
+        # Weighted peer belief
+        mean_peer = float(np.sum([ag.belief * w for ag, w in zip(close_peer_agents, weights)]))
+
+        # DeGroot update with stubbornness
+        target = (1.0 - self.openness) * self.belief + self.openness * mean_peer
         new_belief = self.belief + (1.0 - self.stubbornness) * (target - self.belief)
         self.belief = clip_belief(new_belief)
+
+        # ------------------------------------------------------------------
+        # Dynamic Influence Update
+        # ------------------------------------------------------------------
+        movement = 0.0
+        for ag in close_peer_agents:
+            # high score if neighbor is close to this agent's belief
+            movement += max(0.0, 1 - abs(ag.belief - self.belief))
+
+        if close_peer_agents:
+            movement /= len(close_peer_agents)
+
+        alpha = 0.7
+        self.influence = alpha * self.influence + (1 - alpha) * movement
+        # ------------------------------------------------------------------

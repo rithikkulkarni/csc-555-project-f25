@@ -1,39 +1,46 @@
 import argparse
-from experiment_config import METRICS_FILE_PATH, AGENT_FILE_PATH
+from configs.credibility_influence_configs import (
+    METRICS_FILE_PATH,
+    AGENT_FILE_PATH,
+    NUM_AGENTS,
+    GRAPH_TYPE,
+    STEPS,
+    SEED,
+    K_EXPOSURES,
+    AVG_DEGREE,
+    OPENNESS,
+    TOLERANCE,
+    TOLERANCE_JITTER,
+    STUBBORNNESS,
+    BETA,
+    HIGH_CREDIBILITY,
+    LOW_CREDIBILITY,
+    HIGH_CRED_FRACTION
+)
+
 from model.model import SocialBeliefModel
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--N", type=int, default=500, help="Number of agents")
-    ap.add_argument("--graph", type=str, default="mixed", choices=["mixed", "echo", "curated"], help="Network/feed regime")
-    ap.add_argument("--avg-degree", type=int, default=10, help="Approx. average degree for base graph")
-    ap.add_argument("--steps", type=int, default=200, help="Steps to simulate")
-    ap.add_argument("--seed", type=int, default=None, help="Random seed")
-    ap.add_argument("--openness", type=float, default=0.5, help="Weight on peers vs self (0..1)")
-    ap.add_argument("--tolerance", type=float, default=0.3, help="Max distance accepted in bounded confidence (0..1)")
-    ap.add_argument("--tolerance-jitter", type=float, default=0.05, help="Stddev for individual tolerance heterogeneity")
-    ap.add_argument("--stubbornness", type=float, default=0.1, help="Damping on movement toward target (0..1)")
-    ap.add_argument("--k-exposures", type=int, default=8, help="Number of posts/peers exposed to per step")
-    ap.add_argument("--beta", type=float, default=3.0, help="Similarity bias for curated feeds (higher = stronger)")
-
-    args = ap.parse_args()
-
     model = SocialBeliefModel(
-        N=args.N,
-        graph=args.graph,
-        avg_degree=args.avg_degree,
-        steps=args.steps,
-        seed=args.seed,
-        openness=args.openness,
-        tolerance=args.tolerance,
-        tolerance_jitter=args.tolerance_jitter,
-        stubbornness=args.stubbornness,
-        k_exposures=args.k_exposures,
-        beta=args.beta,
+        N=NUM_AGENTS,
+        graph=GRAPH_TYPE,
+        avg_degree=AVG_DEGREE,
+        steps=STEPS,
+        seed=SEED,
+        openness=OPENNESS,
+        tolerance=TOLERANCE,
+        tolerance_jitter=TOLERANCE_JITTER,
+        stubbornness=STUBBORNNESS,
+        k_exposures=K_EXPOSURES,
+        beta=BETA,
+        high_credibility=HIGH_CREDIBILITY,
+        low_credibility=LOW_CREDIBILITY,
+        high_cred_fraction=HIGH_CRED_FRACTION,
     )
 
+
     model_df, agent_df = model.run(
-        steps=args.steps,
+        steps=STEPS,
         agent_log_path=str(AGENT_FILE_PATH),
     )
 
