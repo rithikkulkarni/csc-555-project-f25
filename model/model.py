@@ -74,30 +74,33 @@ class SocialBeliefModel(Model):
         self.grid = NetworkGrid(self.G)
 
         # Initialize beliefs and heterogeneous tolerances
+        # Initialize beliefs and heterogeneous tolerances
         init_beliefs = mixture_beliefs(N, seed)
         tol_vals = np.clip(np.random.normal(tolerance, tolerance_jitter, N), 0.01, 1.0)
 
         # Precompute centrality for influence initialization
         centrality = nx.betweenness_centrality(self.G, normalized=True)
 
-        # Pick which 10% of agents get high credibility
-        num_high_cred = int(self.high_cred_fraction * N)
-        high_cred_agents = set(self.random.sample(range(N), num_high_cred))
+        # -----------------------------------------------
+        # NEW: Credibility drawn from a normal distribution
+        # -----------------------------------------------
+        # Example defaults (you can configure these via configs.py):
+        CRED_MEAN = 0.5
+        CRED_STD = 0.15
 
-        
-        # ------------------------------------------------------------------------------
-        # Create agents with correct data and place on network grid
-        # ------------------------------------------------------------------------------
-        
+        # Draw credibility values
+        cred_vals = np.random.normal(CRED_MEAN, CRED_STD, N)
+
+        # Clip to valid range [0, 1]
+        cred_vals = np.clip(cred_vals, 0.0, 1.0)
+        # -----------------------------------------------
+
+        # ------------------------------------------------------
+        # Create agents and assign continuous credibility
+        # ------------------------------------------------------
         for i in range(N):
             a = SocialAgent(
-                model=self, 
-                # NOTE:
-                # Passing `model=self` triggers the Mesa Agent constructor,
-                # which automatically registers the agent in model._agents.
-                # The default BaseScheduler (created by Model.__init__) steps
-                # all agents in model._agents, so explicit schedule.add(a)
-                # is NOT required unless we switch to another scheduler type (e.g. RandomActivation).
+                model=self,
                 node_id=i,
                 belief=float(init_beliefs[i]),
                 tolerance=float(tol_vals[i]),
@@ -105,18 +108,16 @@ class SocialBeliefModel(Model):
                 stubbornness=float(stubbornness),
             )
 
-            # --- Assign credibility ---
-            if i in high_cred_agents:
-                a.credibility = self.high_credibility      # trusted expert
-            else:
-                a.credibility = self.low_credibility       # normal person
+            # Assign continuous credibility value
+            a.credibility = float(cred_vals[i])
 
-            # --- Assign initial influence from centrality ---
+            # Influence initialized from centrality
             a.base_centrality = float(centrality[i])
-            a.influence = float(centrality[i])   # start with the same value
+            a.influence = float(centrality[i])
 
-            # Place agent on its graph node
+            # Place agent on graph
             self.grid.place_agent(a, i)
+
 
         # ------------------------------------------------------------------------------
         # Data Collection (Updated for Ethan Experiment)
