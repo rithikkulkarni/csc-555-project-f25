@@ -9,7 +9,7 @@ from mesa.datacollection import DataCollector
 
 
 from .agent import SocialAgent
-from .utils import mixture_beliefs, clip_belief, assortativity_by_belief_bins
+from .utils import clip_belief, mixture_beliefs, mixture_beliefs_asymmetric_shift, mixture_beliefs_asymmetric_extremists, skewed_beliefs_positive, assortativity_by_belief_bins
 
 from configs.credibility_influence_configs import (
     HIGH_CRED_FRACTION,
@@ -74,26 +74,30 @@ class SocialBeliefModel(Model):
         self.grid = NetworkGrid(self.G)
 
         # Initialize beliefs and heterogeneous tolerances
-        # Initialize beliefs and heterogeneous tolerances
-        init_beliefs = mixture_beliefs(N, seed)
+
+        # init_beliefs = mixture_beliefs(N, seed)
+        # init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
+        # init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
+        init_beliefs = skewed_beliefs_positive(N, seed)
+
         tol_vals = np.clip(np.random.normal(tolerance, tolerance_jitter, N), 0.01, 1.0)
 
         # Precompute centrality for influence initialization
         centrality = nx.betweenness_centrality(self.G, normalized=True)
 
-        # -----------------------------------------------
-        # NEW: Credibility drawn from a normal distribution
-        # -----------------------------------------------
-        # Example defaults (you can configure these via configs.py):
+
+
         CRED_MEAN = 0.5
         CRED_STD = 0.15
-
-        # Draw credibility values
         cred_vals = np.random.normal(CRED_MEAN, CRED_STD, N)
-
-        # Clip to valid range [0, 1]
         cred_vals = np.clip(cred_vals, 0.0, 1.0)
-        # -----------------------------------------------
+
+
+        # Pick which 10% of agents get high credibility
+        num_high_cred = int(self.high_cred_fraction * N)
+        high_cred_agents = set(self.random.sample(range(N), num_high_cred))
+
+
 
         # ------------------------------------------------------
         # Create agents and assign continuous credibility
@@ -110,6 +114,12 @@ class SocialBeliefModel(Model):
 
             # Assign continuous credibility value
             a.credibility = float(cred_vals[i])
+
+            # if i in high_cred_agents:
+            #     a.credibility = self.high_credibility      # trusted expert
+            # else:
+            #     a.credibility = self.low_credibility       # normal person
+
 
             # Influence initialized from centrality
             a.base_centrality = float(centrality[i])

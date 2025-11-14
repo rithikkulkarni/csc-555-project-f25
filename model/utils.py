@@ -22,17 +22,86 @@ def mixture_beliefs(n: int, seed: Optional[int] = None) -> np.ndarray:
             vals[i] = np.clip(rng.normal(0.8, 0.12), -1, 1)
     return vals
 
+def mixture_beliefs_asymmetric_shift(n: int, seed: Optional[int] = None) -> np.ndarray:
+    """
+    Asymmetric trimodal distribution:
+    - Left extremists ~ -0.8
+    - Moderates ~ +0.25 (shifted toward right)
+    - Right extremists ~ +0.8
+    """
+
+    rng = np.random.default_rng(seed)
+
+    # Change mixture weights if desired
+    weights = np.array([0.30, 0.30, 0.40])  # mild asymmetry
+    choices = rng.choice([0, 1, 2], size=n, p=weights)
+
+    vals = np.zeros(n)
+    for i, c in enumerate(choices):
+        if c == 0:
+            vals[i] = np.clip(rng.normal(-0.8, 0.12), -1, 1)
+        elif c == 1:
+            vals[i] = np.clip(rng.normal(+0.25, 0.18), -1, 1)
+        else:
+            vals[i] = np.clip(rng.normal(+0.8, 0.12), -1, 1)
+    return vals
+
+def mixture_beliefs_asymmetric_extremists(n: int, seed: Optional[int] = None) -> np.ndarray:
+    """
+    Asymmetric extremist distribution:
+    - 20% left extremists at -0.8
+    - 30% moderates at 0
+    - 50% right extremists at +0.8
+    """
+
+    rng = np.random.default_rng(seed)
+    weights = np.array([0.20, 0.30, 0.50])
+    choices = rng.choice([0, 1, 2], size=n, p=weights)
+
+    vals = np.zeros(n)
+    for i, c in enumerate(choices):
+        if c == 0:
+            vals[i] = np.clip(rng.normal(-0.8, 0.10), -1, 1)
+        elif c == 1:
+            vals[i] = np.clip(rng.normal(0.0, 0.20), -1, 1)
+        else:
+            vals[i] = np.clip(rng.normal(+0.8, 0.10), -1, 1)
+    return vals
+
+def skewed_beliefs_positive(n: int, seed: Optional[int] = None) -> np.ndarray:
+    """
+    Right-skewed unimodal belief distribution centered around +0.3.
+    Produces realistic mild bias without extreme clustering.
+    """
+
+    rng = np.random.default_rng(seed)
+
+    # Beta distribution to induce skew
+    raw = rng.beta(a=2.5, b=1.8, size=n)  # beta in [0,1], slightly right-skewed
+
+    # Map [0,1] to [-1,1]
+    vals = 2 * raw - 1
+
+    # Shift the mean + compress moderate region
+    vals = 0.6 * vals + 0.3  # center around 0.3
+
+    # Clip
+    vals = np.clip(vals, -1, 1)
+    return vals
+
+
 def assortativity_by_belief_bins(G: nx.Graph, beliefs: Dict[int, float], bins: int = 6) -> float:
-    """Approximate homophily by binning belief to categorical attribute and computing
-    attribute assortativity. Returns NaN if graph too small/degenerate."""
     if G.number_of_nodes() < 2 or G.number_of_edges() == 0:
         return float("nan")
-    # Assign attribute category based on bins in [-1, 1]
+
+    # Assign categories first
     for n in G.nodes:
         b = beliefs.get(n, 0.0)
         cat = int(np.digitize(b, np.linspace(-1, 1, bins + 1)) - 1)
         G.nodes[n]["belief_cat"] = cat
-        try:
-            return nx.attribute_assortativity_coefficient(G, "belief_cat")
-        except Exception:
-            return float("nan")
+
+    # Compute assortativity after all assignments
+    try:
+        return nx.attribute_assortativity_coefficient(G, "belief_cat")
+    except Exception:
+        return float("nan")
