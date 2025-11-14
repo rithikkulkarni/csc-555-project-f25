@@ -1,5 +1,5 @@
 import argparse
-from configs.baseline_configs import (
+from configs.granovetter_configs import (
     METRICS_FILE_PATH,
     AGENT_FILE_PATH,
     NUM_AGENTS,
@@ -13,6 +13,8 @@ from configs.baseline_configs import (
     TOLERANCE_JITTER,
     STUBBORNNESS,
     BETA,
+    STRONG_TIE_WEIGHT,
+    WEAK_TIE_WEIGHT,
 )
 
 from model.model import SocialBeliefModel
@@ -30,6 +32,8 @@ def main():
         stubbornness=STUBBORNNESS,
         k_exposures=K_EXPOSURES,
         beta=BETA,
+        strong_tie_weight=STRONG_TIE_WEIGHT,
+        weak_tie_weight=WEAK_TIE_WEIGHT,
     )
 
 

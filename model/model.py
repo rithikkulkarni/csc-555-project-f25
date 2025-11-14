@@ -8,7 +8,78 @@ from mesa.space import NetworkGrid
 from mesa.datacollection import DataCollector
 
 from .agent import SocialAgent
-from .utils import mixture_beliefs, clip_belief, assortativity_by_belief_bins
+from .utils import mixture_beliefs, mixture_beliefs_asymmetric_shift, mixture_beliefs_asymmetric_extremists, skewed_beliefs_positive, clip_belief, assortativity_by_belief_bins
+
+from configs.granovetter_configs import (
+    STRONG_TIE_WEIGHT,
+    WEAK_TIE_WEIGHT,
+    WEAK_TIE_FRACTION,
+)
+
+# -------------------------------------------------------------------
+# Helper functions for Granovetter-style metrics
+# -------------------------------------------------------------------
+
+def compute_weak_tie_fraction(m: "SocialBeliefModel") -> float:
+    """
+    Fraction of edges that are weak ties (by tie_strength).
+    This is static per run but useful for sanity checks across configs.
+    """
+    total = 0
+    weak = 0
+    for u, v, data in m.G.edges(data=True):
+        total += 1
+        w = float(data.get("tie_strength", m.strong_tie_weight))
+        if np.isclose(w, m.weak_tie_weight):
+            weak += 1
+    return float(weak) / total if total > 0 else float("nan")
+
+
+
+def edge_disagreement(m: "SocialBeliefModel", use_weak: bool) -> float:
+    """
+    Average |belief_i - belief_j| over strong or weak edges.
+    - If use_weak=True: only weak ties.
+    - If use_weak=False: only strong ties.
+    This shows how much disagreement sits on strong vs weak edges.
+    """
+    beliefs = {ag.node_id: ag.belief for ag in m.agents}
+    diffs = []
+    for u, v, data in m.G.edges(data=True):
+        w = float(data.get("tie_strength", m.strong_tie_weight))
+        is_weak = np.isclose(w, m.weak_tie_weight)
+        if is_weak != use_weak:
+            continue
+        bu = beliefs.get(u, 0.0)
+        bv = beliefs.get(v, 0.0)
+        diffs.append(abs(bu - bv))
+    return float(np.mean(diffs)) if diffs else float("nan")
+
+
+def inter_cluster_gap(m: "SocialBeliefModel") -> float:
+    """
+    For echo-chamber graphs with stochastic blocks, compute the difference
+    between the most extreme cluster means: max(mean_block) - min(mean_block).
+    Large gap = clusters remain far apart; small gap = clusters converged.
+    """
+    # Only defined for echo regime where we tracked block_bounds
+    if not hasattr(m, "block_bounds") or m.block_bounds is None:
+        return float("nan")
+
+    beliefs = {ag.node_id: ag.belief for ag in m.agents}
+    bounds = m.block_bounds
+    start = 0
+    block_means = []
+    for end in bounds:
+        idxs = range(start, end)
+        vals = [beliefs[i] for i in idxs]
+        if vals:
+            block_means.append(float(np.mean(vals)))
+        start = end
+
+    if len(block_means) < 2:
+        return float("nan")
+    return float(max(block_means) - min(block_means))
 
 
 class SocialBeliefModel(Model):
@@ -25,11 +96,14 @@ class SocialBeliefModel(Model):
         tolerance_jitter: float = 0.05,
         k_exposures: int = 8,
         beta: float = 3.0, # similarity bias for curated feeds
+        strong_tie_weight: float = STRONG_TIE_WEIGHT,
+        weak_tie_weight: float = WEAK_TIE_WEIGHT,
+        weak_tie_fraction: float = WEAK_TIE_FRACTION,
     ):
         # Mesa 3.x requires explicit super init; seed handled here
         super().__init__(seed=seed)
 
-            # Reproducibility for numpy and stdlib random if user passes seed
+        # Reproducibility for numpy and stdlib random if user passes seed
         if seed is not None:
             np.random.seed(seed)
             random.seed(seed)
@@ -40,14 +114,29 @@ class SocialBeliefModel(Model):
         self.avg_degree = avg_degree
         self.k_exposures = k_exposures
         self.beta = beta
+        self.strong_tie_weight = strong_tie_weight
+        self.weak_tie_weight = weak_tie_weight
+        self.weak_tie_fraction = weak_tie_fraction
+        self.weak_tie_activations = 0
+        self.strong_tie_activations = 0
+
+        # Will be set for echo regime to track block boundaries
+        self.block_bounds: Optional[np.ndarray] = None
 
         # Construct graph
         self.G = self._make_graph()
         self.grid = NetworkGrid(self.G)
 
         # Initialize beliefs and heterogeneous tolerances
-        init_beliefs = mixture_beliefs(N, seed)
-        tol_vals = np.clip(np.random.normal(tolerance, tolerance_jitter, N), 0.01, 1.0)
+        # init_beliefs = mixture_beliefs(N, seed)
+        # init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
+        # init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
+        init_beliefs = skewed_beliefs_positive(N, seed)
+        tol_vals = np.clip(
+            np.random.normal(tolerance, tolerance_jitter, N),
+            0.01,
+            1.0,
+        )
 
         # Create agents and place them (agents are auto-registered with the model)
         for i in range(N):
@@ -62,20 +151,41 @@ class SocialBeliefModel(Model):
             # Place on the graph node with same index
             self.grid.place_agent(a, i)
 
-        # Data collection
+        # Data collection: existing metrics + Granovetter-specific ones
         self.datacollector = DataCollector(
             model_reporters={
                 "step": lambda m: m.step_count,
                 "mean_belief": lambda m: float(np.mean([ag.belief for ag in m.agents])),
                 "polarization_var": lambda m: float(np.var([ag.belief for ag in m.agents])),
-                "share_extremes": lambda m: float(np.mean([abs(ag.belief) >= 0.9 for ag in m.agents])),
+                "share_extremes": lambda m: float(
+                    np.mean([abs(ag.belief) >= 0.8 for ag in m.agents])
+                ),
                 "assortativity": lambda m: assortativity_by_belief_bins(
                     m.G, {ag.node_id: ag.belief for ag in m.agents}
                 ),
                 "regime": lambda m: m.graph_regime,
+
+                # --- New Granovetter-focused metrics ---
+                "weak_tie_fraction": lambda m: compute_weak_tie_fraction(m),
+                "weak_edge_disagreement": lambda m: edge_disagreement(m, use_weak=True),
+                "strong_edge_disagreement": lambda m: edge_disagreement(m, use_weak=False),
+                "inter_cluster_gap": lambda m: inter_cluster_gap(m),
+                "weak_tie_activations": lambda m: m.weak_tie_activations,
+                "strong_tie_activations": lambda m: m.strong_tie_activations,
+                "weak_activation_share": lambda m: (
+                    m.weak_tie_activations
+                    / (m.weak_tie_activations + m.strong_tie_activations)
+                    if (m.weak_tie_activations + m.strong_tie_activations) > 0
+                    else float("nan")
+                ),
+                "adoption_share": lambda m: float(
+                    np.mean([ag.belief > 0.5 for ag in m.agents])
+                ),
             },
             agent_reporters={"belief": lambda a: a.belief},
         )
+
+
 
         # Maintain original step indexing behavior
         self.step_count = 0
@@ -83,20 +193,21 @@ class SocialBeliefModel(Model):
     # ---------- Graph builders ----------
     def _make_graph(self) -> nx.Graph:
         if self.graph_regime == "mixed":
-            # Small-world mixed network
-            # Watts-Strogatz with moderate rewiring (diverse contacts)
+            # Small-world mixed network: Watts–Strogatz
             k = max(2, self.avg_degree - (self.avg_degree % 2))
-            return nx.watts_strogatz_graph(self.N, k=k, p=0.15)
+            G = nx.watts_strogatz_graph(self.N, k=k, p=0.15)
+
+            # IMPORTANT: do NOT assign tie_strengths here.
+            # We will enforce the global weak_tie_fraction below.
+            G = self._assign_tie_strengths_by_fraction(G)
+            return G
 
         if self.graph_regime == "echo":
-            # Stochastic block model: two polarized blocks + moderates block,
-            # with high intra-block and low inter-block connectivity.
-            # Block sizes roughly match mixture_beliefs() weights
+            # Stochastic block model with communities
             sizes = [int(0.35 * self.N), int(0.30 * self.N), self.N]
             sizes[2] = self.N - sizes[0] - sizes[1]
-            # Intra >> inter probabilities
             p_in = 0.12
-            p_mid = 0.08  # inside moderates
+            p_mid = 0.08
             p_out = 0.01
             probs = [
                 [p_in,  p_out, p_out],
@@ -104,18 +215,55 @@ class SocialBeliefModel(Model):
                 [p_out, p_out, p_in],
             ]
             G = nx.stochastic_block_model(sizes, probs, seed=None)
-            # Relabel nodes to 0..N-1
             mapping = {old: i for i, old in enumerate(G.nodes())}
             G = nx.relabel_nodes(G, mapping)
+
+            # Track block boundaries on the model for later metrics
+            block_bounds = np.cumsum(sizes)  # e.g., [b0, b1, b2 == N]
+            self.block_bounds = block_bounds
+
+            # NOTE: We no longer set intra-block strong / inter-block weak here.
+            # Instead, we assign weak ties globally to match weak_tie_fraction.
+            G = self._assign_tie_strengths_by_fraction(G)
             return G
 
         if self.graph_regime == "curated":
-            # Underlying social graph (who you might occasionally DM etc.)
-            # but exposure comes from global, similarity-biased feed
+            # Simple Erdős–Rényi underlying graph
             p = min(1.0, self.avg_degree / (self.N - 1))
-            return nx.erdos_renyi_graph(self.N, p)
+            G = nx.erdos_renyi_graph(self.N, p)
+
+            # Again, we let _assign_tie_strengths_by_fraction decide which edges are weak.
+            G = self._assign_tie_strengths_by_fraction(G)
+            return G
 
         raise ValueError(f"Unknown graph regime: {self.graph_regime}")
+
+    
+    def _assign_tie_strengths_by_fraction(self, G: nx.Graph):
+        """
+        Rewrites tie_strength values so that a user-defined fraction of edges
+        are weak ties. Useful for Granovetter experiments.
+        """
+        edges = list(G.edges())
+        total = len(edges)
+        if total == 0:
+            return G
+
+        # Number of desired weak ties
+        target_weak = int(self.weak_tie_fraction * total)
+
+        # Shuffle edges and assign weak ties to a random subset
+        np.random.shuffle(edges)
+        weak_edges = set(edges[:target_weak])
+
+        for u, v in G.edges():
+            if (u, v) in weak_edges or (v, u) in weak_edges:
+                G[u][v]["tie_strength"] = float(self.weak_tie_weight)
+            else:
+                G[u][v]["tie_strength"] = float(self.strong_tie_weight)
+
+        return G
+
 
     # ---------- Utilities ----------
     def agent_belief(self, node_id: int) -> float:
@@ -130,6 +278,10 @@ class SocialBeliefModel(Model):
     def step(self):
         # Collect BEFORE updates (keeps original CSV semantics)
         self.datacollector.collect(self)
+
+        # Reset activation counters for the upcoming step
+        self.weak_tie_activations = 0
+        self.strong_tie_activations = 0
 
         # Mesa 3.x: replace scheduler with AgentSet activation
         # RandomActivation → agents.shuffle_do("step")

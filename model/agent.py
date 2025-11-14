@@ -54,15 +54,48 @@ class SocialAgent(Agent):
         peers = self.sample_exposures()
         if not peers:
             return
-        peer_beliefs = [self.model.agent_belief(pid) for pid in peers]
 
-        # Bounded confidence filter: consider only peers within tolerance
-        close_peers = [b for b in peer_beliefs if abs(b - self.belief) <= self.tolerance]
-        if not close_peers:
+        G = self.model.G
+
+        # Collect (belief, tie_strength) for peers
+        close_beliefs = []
+        weights = []
+
+        for pid in peers:
+            peer_belief = self.model.agent_belief(pid)
+            # Bounded confidence filter
+            if abs(peer_belief - self.belief) <= self.tolerance:
+                # Handle curated regime where there may be no edge:
+                edge_data = G.get_edge_data(self.node_id, pid, default=None)
+                if edge_data is not None:
+                    tie_w = float(edge_data.get("tie_strength", 1.0))
+
+                    # --- NEW: count this as a weak/strong tie activation ---
+                    if np.isclose(tie_w, self.model.weak_tie_weight):
+                        self.model.weak_tie_activations += 1
+                    else:
+                        self.model.strong_tie_activations += 1
+                    # -------------------------------------------------------
+                else:
+                    # If no edge exists (e.g., curated exposure), treat as baseline weight
+                    tie_w = 1.0
+                    # you can choose NOT to count these as weak/strong activations
+
+                close_beliefs.append(peer_belief)
+                weights.append(tie_w)
+
+        if not close_beliefs:
             return
 
-        # DeGroot-style target: convex combo of self and mean of considered peers
-        mean_peer = float(np.mean(close_peers))
+        weights = np.array(weights, dtype=float)
+        # avoid division by zero in pathological cases
+        if weights.sum() <= 0:
+            mean_peer = float(np.mean(close_beliefs))
+        else:
+            probs = weights / weights.sum()
+            mean_peer = float(np.dot(probs, np.array(close_beliefs, dtype=float)))
+
+        # DeGroot-style target: self vs weighted neighbors
         target = (1.0 - self.openness) * self.belief + self.openness * mean_peer
 
         # Stubbornness damps motion toward target
