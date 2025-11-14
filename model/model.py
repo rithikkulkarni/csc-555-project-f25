@@ -47,6 +47,9 @@ class SocialBeliefModel(Model):
 
         # Initialize beliefs and heterogeneous tolerances
         init_beliefs = mixture_beliefs(N, seed)
+        # init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
+        # init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
+        # init_beliefs = skewed_beliefs_positive(N, seed)
         tol_vals = np.clip(np.random.normal(tolerance, tolerance_jitter, N), 0.01, 1.0)
 
         # Create agents and place them (agents are auto-registered with the model)
