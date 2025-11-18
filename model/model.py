@@ -80,13 +80,16 @@ class SocialBeliefModel(Model):
         # init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
         init_beliefs = skewed_beliefs_positive(N, seed)
 
+
+        # Generate tolerance values
         tol_vals = np.clip(np.random.normal(tolerance, tolerance_jitter, N), 0.01, 1.0)
 
         # Precompute centrality for influence initialization
         centrality = nx.betweenness_centrality(self.G, normalized=True)
 
 
-
+        # Assign continuous credibility
+        # (used for normally distributed experiment)
         CRED_MEAN = 0.5
         CRED_STD = 0.15
         cred_vals = np.random.normal(CRED_MEAN, CRED_STD, N)
@@ -94,6 +97,7 @@ class SocialBeliefModel(Model):
 
 
         # Pick which 10% of agents get high credibility
+        # (used for discrete level credibility experiments)
         num_high_cred = int(self.high_cred_fraction * N)
         high_cred_agents = set(self.random.sample(range(N), num_high_cred))
 
