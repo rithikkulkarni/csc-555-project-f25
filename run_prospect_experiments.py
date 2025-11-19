@@ -167,7 +167,7 @@ def run_network_regime_comparison():
         model_df, _ = model.run()
         
         # Track evolution over time
-        for step_idx in [0, 50, 100, 150, 200, 250, 299]:
+        for step_idx in range(300):
             row = model_df.iloc[step_idx]
             results.append({
                 'regime': regime,
