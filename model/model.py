@@ -53,7 +53,6 @@ class SocialBeliefModel(Model):
     ):
         # Should create self.random, self._agents, self.schedule and self._next_id if I understand correctly
         super().__init__(seed=seed)
-
         if seed is not None:
             np.random.seed(seed)
             random.seed(seed)
@@ -75,10 +74,10 @@ class SocialBeliefModel(Model):
 
         # Initialize beliefs and heterogeneous tolerances
 
-        # init_beliefs = mixture_beliefs(N, seed)
+        init_beliefs = mixture_beliefs(N, seed)
         # init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
         # init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
-        init_beliefs = skewed_beliefs_positive(N, seed)
+        # init_beliefs = skewed_beliefs_positive(N, seed)
 
 
         # Generate tolerance values

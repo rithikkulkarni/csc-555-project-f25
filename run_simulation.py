@@ -18,9 +18,10 @@ from configs.credibility_influence_configs import (
     HIGH_CRED_FRACTION
 )
 
-from model.model import SocialBeliefModel
-
 def main():
+    print("starting main")
+    from model.model import SocialBeliefModel
+    print("mesa imported")
      # Create model instance with parameters supplied from config file.
     # These include behavioral prefs, credibility settings, graph type, etc.
     model = SocialBeliefModel(
@@ -43,7 +44,7 @@ def main():
     # Run the simulation for STEPS ticks and optionally record agent-level logs
     model_df, agent_df = model.run(
         steps=STEPS,
-        agent_log_path=str(AGENT_FILE_PATH),
+        agent_log_path=None,
     )
 
     # Save step-by-step model metrics to a CSV
