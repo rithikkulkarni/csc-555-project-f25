@@ -2,10 +2,10 @@ from pathlib import Path
 
 
 RESULTS_ROOT = "results" # DO NOT CHANGE THIS
-EXPERIMENT_NAME = "discrete_credibility" # Change when running entirely new experiment
+EXPERIMENT_NAME = "normally_distributed_credibility" # Change when running entirely new experiment
 
-METRICS_FILENAME = "type1_curated_metrics.csv" # Change each time you run the simulation
-AGENT_FILENAME = "type1_curated_agent.csv" # Change each time you run the simulation
+METRICS_FILENAME = "type4_mixed_metrics.csv" # Change each time you run the simulation
+AGENT_FILENAME = "type3_curated_agent.csv" # Change each time you run the simulation
 
 EXP_DIR = Path(RESULTS_ROOT) / EXPERIMENT_NAME
 EXP_DIR.mkdir(parents=True, exist_ok=True)
@@ -17,9 +17,9 @@ AGENT_FILE_PATH = None
 NUM_AGENTS = 100
 
 # Network and Simulation Settings
-GRAPH_TYPE = "curated"
+GRAPH_TYPE = "mixed"
 STEPS = 300
-SEED=1
+SEED=5
 K_EXPOSURES = 8
 AVG_DEGREE = 10
 
