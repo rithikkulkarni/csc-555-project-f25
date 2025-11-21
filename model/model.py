@@ -12,10 +12,25 @@ from .agent import SocialAgent
 from .utils import clip_belief, mixture_beliefs, mixture_beliefs_asymmetric_shift, mixture_beliefs_asymmetric_extremists, skewed_beliefs_positive, assortativity_by_belief_bins
 
 from configs.credibility_influence_configs import (
+    BELIEF_INITIALIZATION,
+    GRAPH_TYPE,
+    STEPS,
+    SEED,
+    K_EXPOSURES,
+    AVG_DEGREE,
+    BETA,
+    OPENNESS,
+    TOLERANCE,
+    TOLERANCE_JITTER,
+    STUBBORNNESS,
+    NUM_AGENTS,
     HIGH_CRED_FRACTION,
     HIGH_CREDIBILITY,
-    LOW_CREDIBILITY
+    LOW_CREDIBILITY,
+    CRED_DISTRIBUTION
 )
+
+
 
 def gini(values):
         arr = np.array(values)
@@ -35,21 +50,22 @@ def rank_top_fraction(arr, frac=0.1):
 class SocialBeliefModel(Model):
     def __init__(
         self,
-        N: int = 500,
-        graph: str = "mixed", # echo | mixed | curated
-        avg_degree: int = 10,
-        steps: int = 200,
-        seed: Optional[int] = None,
-        openness: float = 0.5,
-        tolerance: float = 0.3,
-        stubbornness: float = 0.1,
-        tolerance_jitter: float = 0.05,
-        k_exposures: int = 8,
-        beta: float = 3.0, # similarity bias for curated feeds
+        N: int = NUM_AGENTS,
+        graph: str = GRAPH_TYPE,
+        avg_degree: int = AVG_DEGREE,
+        steps: int = STEPS,
+        seed: Optional[int] = SEED,
+        openness: float = OPENNESS,
+        tolerance: float = TOLERANCE,
+        stubbornness: float = STUBBORNNESS,
+        tolerance_jitter: float = TOLERANCE_JITTER,
+        k_exposures: int = K_EXPOSURES,
+        beta: float = BETA, # similarity bias for curated feeds
+        belief_initialization: int = BELIEF_INITIALIZATION,
+        high_cred_fraction: float = HIGH_CRED_FRACTION,
         high_credibility: float = HIGH_CREDIBILITY,
         low_credibility: float = LOW_CREDIBILITY,
-        high_cred_fraction: float = HIGH_CRED_FRACTION,
-
+        cred_distribution: int = CRED_DISTRIBUTION,
     ):
         # Should create self.random, self._agents, self.schedule and self._next_id if I understand correctly
         super().__init__(seed=seed)
@@ -73,11 +89,14 @@ class SocialBeliefModel(Model):
         self.grid = NetworkGrid(self.G)
 
         # Initialize beliefs and heterogeneous tolerances
-
-        # init_beliefs = mixture_beliefs(N, seed)
-        # init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
-        # init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
-        init_beliefs = skewed_beliefs_positive(N, seed)
+        if belief_initialization == 1:
+            init_beliefs = mixture_beliefs(N, seed)
+        elif belief_initialization == 2:
+            init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
+        elif belief_initialization == 3:
+            init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
+        else:
+            init_beliefs = skewed_beliefs_positive(N, seed)
 
 
         # Generate tolerance values
@@ -115,14 +134,14 @@ class SocialBeliefModel(Model):
                 stubbornness=float(stubbornness),
             )
 
-            # Assign continuous credibility value
-            a.credibility = float(cred_vals[i])
-
-            # if i in high_cred_agents:
-            #     a.credibility = self.high_credibility      # trusted expert
-            # else:
-            #     a.credibility = self.low_credibility       # normal person
-
+            if cred_distribution == 1:
+                # Assign continuous credibility value
+                a.credibility = float(cred_vals[i])
+            else:
+                if i in high_cred_agents:
+                    a.credibility = self.high_credibility      # trusted expert
+                else:
+                    a.credibility = self.low_credibility       # normal person
 
             # Influence initialized from centrality
             a.base_centrality = float(centrality[i])
