@@ -11,6 +11,18 @@ from .agent import SocialAgent
 from .utils import mixture_beliefs, mixture_beliefs_asymmetric_shift, mixture_beliefs_asymmetric_extremists, skewed_beliefs_positive, clip_belief, assortativity_by_belief_bins
 
 from configs.granovetter_configs import (
+    BELIEF_INITIALIZATION,
+    GRAPH_TYPE,
+    STEPS,
+    SEED,
+    K_EXPOSURES,
+    AVG_DEGREE,
+    BETA,
+    OPENNESS,
+    TOLERANCE,
+    TOLERANCE_JITTER,
+    STUBBORNNESS,
+    NUM_AGENTS,
     STRONG_TIE_WEIGHT,
     WEAK_TIE_WEIGHT,
     WEAK_TIE_FRACTION,
@@ -85,17 +97,18 @@ def inter_cluster_gap(m: "SocialBeliefModel") -> float:
 class SocialBeliefModel(Model):
     def __init__(
         self,
-        N: int = 500,
-        graph: str = "mixed", # echo | mixed | curated
-        avg_degree: int = 10,
-        steps: int = 200,
-        seed: Optional[int] = None,
-        openness: float = 0.5,
-        tolerance: float = 0.3,
-        stubbornness: float = 0.1,
-        tolerance_jitter: float = 0.05,
-        k_exposures: int = 8,
-        beta: float = 3.0, # similarity bias for curated feeds
+        N: int = NUM_AGENTS,
+        graph: str = GRAPH_TYPE,
+        avg_degree: int = AVG_DEGREE,
+        steps: int = STEPS,
+        seed: Optional[int] = SEED,
+        openness: float = OPENNESS,
+        tolerance: float = TOLERANCE,
+        stubbornness: float = STUBBORNNESS,
+        tolerance_jitter: float = TOLERANCE_JITTER,
+        k_exposures: int = K_EXPOSURES,
+        beta: float = BETA, # similarity bias for curated feeds
+        belief_initialization: int = BELIEF_INITIALIZATION,
         strong_tie_weight: float = STRONG_TIE_WEIGHT,
         weak_tie_weight: float = WEAK_TIE_WEIGHT,
         weak_tie_fraction: float = WEAK_TIE_FRACTION,
@@ -128,10 +141,15 @@ class SocialBeliefModel(Model):
         self.grid = NetworkGrid(self.G)
 
         # Initialize beliefs and heterogeneous tolerances
-        # init_beliefs = mixture_beliefs(N, seed)
-        # init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
-        # init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
-        init_beliefs = skewed_beliefs_positive(N, seed)
+        if belief_initialization == 1:
+            init_beliefs = mixture_beliefs(N, seed)
+        elif belief_initialization == 2:
+            init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
+        elif belief_initialization == 3:
+            init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
+        else:
+            init_beliefs = skewed_beliefs_positive(N, seed)
+        
         tol_vals = np.clip(
             np.random.normal(tolerance, tolerance_jitter, N),
             0.01,
