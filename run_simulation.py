@@ -1,60 +1,29 @@
-import argparse
+from model.model import SocialBeliefModel
 from configs.credibility_influence_configs import (
-    METRICS_FILE_PATH,
-    AGENT_FILE_PATH,
-    NUM_AGENTS,
-    GRAPH_TYPE,
-    STEPS,
-    SEED,
-    K_EXPOSURES,
-    AVG_DEGREE,
-    OPENNESS,
-    TOLERANCE,
-    TOLERANCE_JITTER,
-    STUBBORNNESS,
-    BETA,
-    HIGH_CREDIBILITY,
-    LOW_CREDIBILITY,
-    HIGH_CRED_FRACTION
+    GRAPH_TYPE, BELIEF_INITIALIZATION, CRED_DISTRIBUTION,
+    NUM_AGENTS, STEPS, AVG_DEGREE, K_EXPOSURES,
+    BETA, OPENNESS, TOLERANCE, TOLERANCE_JITTER,
+    STUBBORNNESS, HIGH_CRED_FRACTION, HIGH_CREDIBILITY, LOW_CREDIBILITY
 )
 
-def main():
-    print("starting main")
-    from model.model import SocialBeliefModel
-    print("mesa imported")
-     # Create model instance with parameters supplied from config file.
-    # These include behavioral prefs, credibility settings, graph type, etc.
-    model = SocialBeliefModel(
-        N=NUM_AGENTS,
-        graph=GRAPH_TYPE,
-        avg_degree=AVG_DEGREE,
-        steps=STEPS,
-        seed=SEED,
-        openness=OPENNESS,
-        tolerance=TOLERANCE,
-        tolerance_jitter=TOLERANCE_JITTER,
-        stubbornness=STUBBORNNESS,
-        k_exposures=K_EXPOSURES,
-        beta=BETA,
-        high_credibility=HIGH_CREDIBILITY,
-        low_credibility=LOW_CREDIBILITY,
-        high_cred_fraction=HIGH_CRED_FRACTION,
-    )
+m = SocialBeliefModel(
+    N=NUM_AGENTS,
+    graph=GRAPH_TYPE,
+    avg_degree=AVG_DEGREE,
+    steps=STEPS,
+    seed=1,
+    openness=OPENNESS,
+    tolerance=TOLERANCE,
+    stubbornness=STUBBORNNESS,
+    tolerance_jitter=TOLERANCE_JITTER,
+    k_exposures=K_EXPOSURES,
+    beta=BETA,
+    belief_initialization=BELIEF_INITIALIZATION,
+    high_cred_fraction=HIGH_CRED_FRACTION,
+    high_credibility=HIGH_CREDIBILITY,
+    low_credibility=LOW_CREDIBILITY,
+    cred_distribution=CRED_DISTRIBUTION,
+)
 
-    # Run the simulation for STEPS ticks and optionally record agent-level logs
-    model_df, agent_df = model.run(
-        steps=STEPS,
-        agent_log_path=None,
-    )
-
-    # Save step-by-step model metrics to a CSV
-    model_df.to_csv(METRICS_FILE_PATH, index=False)
-
-    print("\nFinished! Saved:")
-    print(f"  - {METRICS_FILE_PATH} (per-step metrics)")
-    if AGENT_FILE_PATH:
-        print(f"  - {METRICS_FILE_PATH} (per-agent trajectories)")
-    print("\nColumns in per-step metrics:\n", list(model_df.columns))
-
-if __name__ == "__main__":
-    main()
+df, _ = m.run()
+print(df)
