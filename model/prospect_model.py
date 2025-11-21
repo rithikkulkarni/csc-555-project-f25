@@ -8,8 +8,8 @@ from mesa.space import NetworkGrid
 from mesa.datacollection import DataCollector
 
 from .prospect_agent import ProspectTheoryAgent
-from .utils import mixture_beliefs, clip_belief, assortativity_by_belief_bins
-
+from .utils import mixture_beliefs, clip_belief, assortativity_by_belief_bins, mixture_beliefs_asymmetric_shift, mixture_beliefs_asymmetric_extremists, skewed_beliefs_positive 
+from configs.prospect_configs import BELIEF_DISTRIBUTION
 
 class ProspectTheoryModel(Model):
     """
@@ -19,19 +19,19 @@ class ProspectTheoryModel(Model):
     
     def __init__(
         self,
-        N: int = 100,
-        graph: str = "mixed",  # echo | mixed | curated
-        avg_degree: int = 10,
-        steps: int = 300,
-        seed: Optional[int] = None,
-        openness: float = 0.5,
-        tolerance: float = 0.35,
-        stubbornness: float = 0.15,
-        tolerance_jitter: float = 0.05,
-        k_exposures: int = 8,
-        beta: float = 3.0,
-        loss_aversion: float = 2.0,  # Prospect theory parameter
-        risk_aversion: float = 0.88,  # Prospect theory parameter
+        N: int,
+        graph: str,
+        avg_degree: int,
+        steps: int,
+        seed: Optional[int],
+        openness: float,
+        tolerance: float,
+        stubbornness: float,
+        tolerance_jitter: float,
+        k_exposures: int,
+        beta: float,
+        loss_aversion: float,
+        risk_aversion: float,
     ):
         super().__init__(seed=seed)
 
@@ -52,8 +52,22 @@ class ProspectTheoryModel(Model):
         self.G = self._make_graph()
         self.grid = NetworkGrid(self.G)
 
-        # Initialize beliefs and heterogeneous tolerances
-        init_beliefs = mixture_beliefs(N, seed)
+        # Initialize beliefs and heterogeneous tolerances - Uncomment the version to be used in an experiment
+        # init_beliefs = mixture_beliefs(N, seed) # Type 1
+        init_beliefs = mixture_beliefs_asymmetric_shift(N, seed) # Type 2
+        # init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed) # Type 3
+        # init_beliefs = skewed_beliefs_positive(N, seed) # Type 4
+        if BELIEF_DISTRIBUTION == "trimodal":
+            init_beliefs = mixture_beliefs(N, seed)
+        elif BELIEF_DISTRIBUTION == "asymmetric_shift":
+            init_beliefs = mixture_beliefs_asymmetric_shift(N, seed)
+        elif BELIEF_DISTRIBUTION == "asymmetric_extremists":
+            init_beliefs = mixture_beliefs_asymmetric_extremists(N, seed)
+        elif BELIEF_DISTRIBUTION == "skewed_positive":
+            init_beliefs = skewed_beliefs_positive(N, seed)
+        else:
+            raise ValueError(f"Unknown belief distribution: {BELIEF_DISTRIBUTION}")
+
         tol_vals = np.clip(np.random.normal(tolerance, tolerance_jitter, N), 0.01, 1.0)
 
         # Create Prospect Theory agents

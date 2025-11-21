@@ -3,15 +3,54 @@ Prospect Theory Experiments Runner
 Place this file in the root directory (same level as run_simulation.py)
 """
 
+import os
 from pathlib import Path
 import pandas as pd
 from model.prospect_model import ProspectTheoryModel
+from configs.prospect_configs import (
+    NUM_AGENTS, STEPS, K_EXPOSURES, AVG_DEGREE, BETA,
+    OPENNESS, TOLERANCE, TOLERANCE_JITTER, STUBBORNNESS,
+    LOSS_AVERSION, RISK_AVERSION, BELIEF_DISTRIBUTION, SEED as CONFIG_SEED
+)
 
+# Detect if running from batch script and determine which seed to use
+if 'SEED' in os.environ:
+    # Running from batch script - use environment variable
+    CURRENT_SEED = int(os.environ['SEED'])
+else:
+    # Running individually - use config file seed
+    CURRENT_SEED = CONFIG_SEED
 
-# Configuration
-RESULTS_DIR = Path("results") / "prospect_theory_experiment"
+# Configuration - create seed-specific directory
+#RESULTS_DIR = Path("results") / "prospect_theory_experiment" / f"prospect_seed{SEED}"
+#RESULTS_DIR = Path("results") / "prospect_theory_experiment" / f"seed{SEED}_{BELIEF_DISTRIBUTION}"
+RESULTS_DIR = Path("results") / "prospect_theory_experiment" / f"seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
+def makeModel(
+    regime: str, 
+    loss_aversion: float = LOSS_AVERSION,
+    stubbornness: float = STUBBORNNESS
+) -> ProspectTheoryModel:
+    """Helper function to create ProspectTheoryModel with consistent parameters"""
+    model = ProspectTheoryModel(
+        N=NUM_AGENTS,
+        graph=regime,
+        avg_degree=AVG_DEGREE,
+        steps=STEPS,
+        #seed=SEED,
+        seed=CURRENT_SEED,
+        openness=OPENNESS,
+        tolerance=TOLERANCE,
+        stubbornness=stubbornness,
+        tolerance_jitter=TOLERANCE_JITTER,
+        k_exposures=K_EXPOSURES,
+        beta=BETA,
+        loss_aversion=loss_aversion,
+        risk_aversion=RISK_AVERSION
+    )
+    # print(f"Creating model: regime={regime}, loss_aversion={loss_aversion}, stubbornness={stubbornness}")
+    return model
 
 def run_loss_aversion_experiment():
     """
@@ -32,21 +71,9 @@ def run_loss_aversion_experiment():
     for regime in regimes:
         print(f"\nTesting {regime} regime...")
         for lambda_val in loss_aversion_values:
-            print(f"  Loss aversion λ = {lambda_val}")
-            
-            model = ProspectTheoryModel(
-                N=100,
-                graph=regime,
-                steps=300,
-                seed=1,
-                loss_aversion=lambda_val,
-                openness=0.5,
-                tolerance=0.35,
-                stubbornness=0.15,
-                k_exposures=8,
-                avg_degree=10,
-            )
-            
+            print(f"  Loss aversion lamba = {lambda_val}")
+            model = makeModel(regime=regime, loss_aversion=lambda_val)
+
             model_df, _ = model.run()
             
             # Get final metrics
@@ -61,9 +88,9 @@ def run_loss_aversion_experiment():
                 'belief_drift': final['belief_drift'],
                 'final_assortativity': final['assortativity'],
             })
-    
+
     df = pd.DataFrame(results)
-    output_path = RESULTS_DIR / "exp1_loss_aversion.csv"
+    output_path = RESULTS_DIR / f"seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}_prospect_exp1.csv"
     df.to_csv(output_path, index=False)
     
     print("\nSummary by regime:")
@@ -88,21 +115,9 @@ def run_reference_point_experiment():
     regimes = ["mixed", "echo", "curated"]
     
     for regime in regimes:
-        print(f"\nTesting {regime} regime with λ=2.0...")
+        print(f"\nTesting {regime} regime with lambda =2.0...")
         
-        model = ProspectTheoryModel(
-            N=100,
-            graph=regime,
-            steps=300,
-            seed=1,
-            loss_aversion=2.0,
-            openness=0.5,
-            tolerance=0.35,
-            stubbornness=0.15,
-            k_exposures=8,
-            avg_degree=10,
-        )
-        
+        model = makeModel(regime)
         model_df, _ = model.run()
         
         # Calculate how many agents crossed their reference point (initial belief)
@@ -120,7 +135,7 @@ def run_reference_point_experiment():
         })
     
     df = pd.DataFrame(results)
-    output_path = RESULTS_DIR / "exp2_reference_points.csv"
+    output_path = RESULTS_DIR / f"seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}_prospect_exp2.csv"
     df.to_csv(output_path, index=False)
     
     print("\nReference Point Crossings:")
@@ -148,22 +163,7 @@ def run_network_regime_comparison():
     for regime in regimes:
         print(f"\nTesting {regime} regime...")
         
-        # Run with standard prospect theory parameters
-        model = ProspectTheoryModel(
-            N=100,
-            graph=regime,
-            steps=300,
-            seed=1,
-            loss_aversion=2.0,
-            risk_aversion=0.88,
-            openness=0.5,
-            tolerance=0.35,
-            stubbornness=0.15,
-            k_exposures=8,
-            avg_degree=10,
-            beta=3.0,
-        )
-        
+        model = makeModel(regime)
         model_df, _ = model.run()
         
         # Track evolution over time
@@ -180,7 +180,7 @@ def run_network_regime_comparison():
             })
     
     df = pd.DataFrame(results)
-    output_path = RESULTS_DIR / "exp3_regime_comparison.csv"
+    output_path = RESULTS_DIR / f"seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}_prospect_exp3.csv"
     df.to_csv(output_path, index=False)
     
     print("\nFinal state by regime:")
@@ -207,21 +207,9 @@ def run_loss_aversion_vs_stubbornness():
     
     for lambda_val in loss_aversion_values:
         for stub in stubbornness_values:
-            print(f"Testing λ={lambda_val}, stubbornness={stub}")
-            
-            model = ProspectTheoryModel(
-                N=100,
-                graph="mixed",  # Small-world recommended for prospect theory
-                steps=300,
-                seed=1,
-                loss_aversion=lambda_val,
-                openness=0.5,
-                tolerance=0.35,
-                stubbornness=stub,
-                k_exposures=8,
-                avg_degree=10,
-            )
-            
+            print(f"Testing lambda={lambda_val}, stubbornness={stub}")
+            # Pass both custom parameters
+            model = makeModel(regime="mixed", loss_aversion=lambda_val, stubbornness=stub)
             model_df, _ = model.run()
             final = model_df.iloc[-1]
             
@@ -234,7 +222,7 @@ def run_loss_aversion_vs_stubbornness():
             })
     
     df = pd.DataFrame(results)
-    output_path = RESULTS_DIR / "exp4_loss_stubbornness.csv"
+    output_path = RESULTS_DIR / f"seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}_prospect_exp4.csv"
     df.to_csv(output_path, index=False)
     
     print("\nInteraction effects:")
@@ -269,12 +257,11 @@ def main():
     print("ALL EXPERIMENTS COMPLETED")
     print("=" * 70)
     print(f"\nResults saved to: {RESULTS_DIR.absolute()}")
-    print("\nFiles created:")
-    print("  - exp1_loss_aversion.csv")
-    print("  - exp2_reference_points.csv")
-    print("  - exp3_regime_comparison.csv")
-    print("  - exp4_loss_stubbornness.csv")
-
+    print(f"\nFiles created (seed={CURRENT_SEED}):")
+    print(f"  - seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}_prospect_exp1.csv")
+    print(f"  - seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}_prospect_exp2.csv")
+    print(f"  - seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}_prospect_exp3.csv")
+    print(f"  - seed{CURRENT_SEED}_{BELIEF_DISTRIBUTION}_prospect_exp4.csv")
 
 if __name__ == "__main__":
     main()
