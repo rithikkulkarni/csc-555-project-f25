@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 RESULTS_DIR = "results"
 
-# Explicit seed folders
+# Seed folders
 seed_names = [
     "first_seed",
     "second_seed",
@@ -22,10 +22,10 @@ belief_types = {
     "type4": "Right Skewed",
 }
 
-# Regimes used in the experiment
+# Regimes
 regimes = ["mixed", "echo", "curated"]
 
-# Metrics to visualize for the CONTROL experiment
+# Metrics to visualize for the control experiment
 METRIC_LABELS = {
     "mean_belief": "Mean Belief",
     "polarization_var": "Belief Variance (Polarization)",
@@ -39,9 +39,8 @@ os.makedirs(OUTPUT_ROOT, exist_ok=True)
 
 def plot_for_belief_control(btype_key: str):
     """
-    Aggregate across seeds for a given belief type in the CONTROL experiment
-    (no weak-tie-specific metrics), and plot all metrics over time with
-    one line per regime.
+    Aggregate across seeds for a given belief type in the contrtol experiment
+    and plot all metrics over time withone line per regime.
     """
     # All control plots go into a single folder
     out_dir = os.path.join(OUTPUT_ROOT, "control_experiment")
@@ -51,7 +50,7 @@ def plot_for_belief_control(btype_key: str):
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     axes = axes.flatten()
 
-    belief_num = btype_key[-1]  # "type1" -> "1"
+    belief_num = btype_key[-1]
 
     for i, (metric, label) in enumerate(METRIC_LABELS.items()):
         ax = axes[i]
@@ -68,7 +67,6 @@ def plot_for_belief_control(btype_key: str):
 
                 if os.path.exists(file_path):
                     df = pd.read_csv(file_path)
-                    # Keep only numeric columns so aggregation works cleanly
                     num_df = df.select_dtypes(include=[np.number])
                     dfs.append(num_df)
 
@@ -91,7 +89,6 @@ def plot_for_belief_control(btype_key: str):
                     linewidth=2,
                 )
 
-                # Shaded ±1 std band
                 ax.fill_between(
                     grouped.index,
                     grouped[mean_col] - grouped[std_col],
@@ -105,7 +102,6 @@ def plot_for_belief_control(btype_key: str):
         ax.grid(alpha=0.3)
         ax.legend()
 
-    # Turn off any unused axes (if any, though we used all 4)
     for j in range(len(METRIC_LABELS), len(axes)):
         axes[j].axis("off")
 
@@ -123,6 +119,6 @@ def plot_for_belief_control(btype_key: str):
     print(f"Saved: {out_path}")
 
 
-# Generate all control plots (one per belief type)
+# Generate all control plots
 for btype in belief_types.keys():
     plot_for_belief_control(btype)

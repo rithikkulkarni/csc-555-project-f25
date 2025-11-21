@@ -78,4 +78,4 @@ You can manually run a single simulation to test your setup with the command:
 
     python run_simulation.py
 
-This script will use the default parameters set in configs/granovetter_configs.py and then print the resulting metrics dataframe to the terminal.
+This script will use the default parameters set in configs/control_configs.py and then print the resulting metrics dataframe to the terminal.

@@ -25,10 +25,6 @@ from configs.control_configs import (
     NUM_AGENTS,
 )
 
-# -------------------------------------------------------------------
-# Helper functions for Granovetter-style metrics
-# -------------------------------------------------------------------
-
 def compute_weak_tie_fraction(m: "SocialBeliefModel") -> float:
     """
     Fraction of edges that are weak ties (by tie_strength).
@@ -104,13 +100,11 @@ class SocialBeliefModel(Model):
         stubbornness: float = STUBBORNNESS,
         tolerance_jitter: float = TOLERANCE_JITTER,
         k_exposures: int = K_EXPOSURES,
-        beta: float = BETA, # similarity bias for curated feeds
+        beta: float = BETA,
         belief_initialization: int = BELIEF_INITIALIZATION,
     ):
-        # Mesa 3.x requires explicit super init; seed handled here
         super().__init__(seed=seed)
 
-        # Reproducibility for numpy and stdlib random if user passes seed
         if seed is not None:
             np.random.seed(seed)
             random.seed(seed)
@@ -147,7 +141,7 @@ class SocialBeliefModel(Model):
             1.0,
         )
 
-        # Create agents and place them (agents are auto-registered with the model)
+        # Create agents and place them
         for i in range(N):
             a = SocialAgent(
                 model=self,
@@ -160,7 +154,7 @@ class SocialBeliefModel(Model):
             # Place on the graph node with same index
             self.grid.place_agent(a, i)
 
-        # Data collection: existing metrics + Granovetter-specific ones
+        # Data collection: existing metrics
         self.datacollector = DataCollector(
             model_reporters={
                 "step": lambda m: m.step_count,
@@ -182,10 +176,10 @@ class SocialBeliefModel(Model):
         # Maintain original step indexing behavior
         self.step_count = 0
 
-    # ---------- Graph builders ----------
+    # Graph builders
     def _make_graph(self) -> nx.Graph:
         if self.graph_regime == "mixed":
-            # Small-world mixed network: Watts–Strogatz
+            # Small-world mixed network - Watts–Strogatz
             k = max(2, self.avg_degree - (self.avg_degree % 2))
             G = nx.watts_strogatz_graph(self.N, k=k, p=0.15)
             return G
@@ -206,14 +200,12 @@ class SocialBeliefModel(Model):
             mapping = {old: i for i, old in enumerate(G.nodes())}
             G = nx.relabel_nodes(G, mapping)
 
-            # Track block boundaries on the model for later metrics (if needed)
-            block_bounds = np.cumsum(sizes)  # e.g., [b0, b1, b2 == N]
+            block_bounds = np.cumsum(sizes)
             self.block_bounds = block_bounds
 
             return G
 
         if self.graph_regime == "curated":
-            # Simple Erdős–Rényi underlying graph
             p = min(1.0, self.avg_degree / (self.N - 1))
             G = nx.erdos_renyi_graph(self.N, p)
             return G
@@ -221,7 +213,7 @@ class SocialBeliefModel(Model):
         raise ValueError(f"Unknown graph regime: {self.graph_regime}")
 
 
-    # ---------- Utilities ----------
+    # Utilities
     def agent_belief(self, node_id: int) -> float:
         # In NetworkGrid, multiple agents can occupy a node, but we place 1:1
         # So, find the agent at node id == node_id
@@ -230,17 +222,14 @@ class SocialBeliefModel(Model):
             return 0.0
         return cell_agents[0].belief
 
-    # ---------- Simulation loop ----------
+    # Simulation loop
     def step(self):
-        # Collect BEFORE updates (keeps original CSV semantics)
         self.datacollector.collect(self)
 
         # Reset activation counters for the upcoming step
         self.weak_tie_activations = 0
         self.strong_tie_activations = 0
 
-        # Mesa 3.x: replace scheduler with AgentSet activation
-        # RandomActivation → agents.shuffle_do("step")
         self.agents.shuffle_do("step")
 
         # Maintain original counter
@@ -250,12 +239,12 @@ class SocialBeliefModel(Model):
         steps = steps if steps is not None else self.steps_target
         agent_rows: List[Tuple[int, int, float]] = []
         for t in range(steps):
-            # Optional per-agent logging (before update to log current state)
+            # Optional per-agent logging
             if agent_log_path is not None:
                 for a in self.agents:
                     agent_rows.append((t, a.unique_id, a.belief))
             self.step()
-        # Final collect (post-final state)
+        # Final collect
         self.datacollector.collect(self)
         model_df = self.datacollector.get_model_vars_dataframe().reset_index(drop=True)
         agent_df = None

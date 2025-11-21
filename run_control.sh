@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Root directory for all results (must match configs.control_configs.RESULTS_ROOT)
+# Root directory for all results
 RESULTS_ROOT="results"
 
 # Map seed number -> folder name
@@ -13,9 +13,9 @@ SEED_LABEL[4]="fourth_seed"
 SEED_LABEL[5]="fifth_seed"
 
 # Main loops:
-#  - 5 seeds
-#  - 4 belief initializations
-#  - 3 graph regimes
+#  5 seeds
+#  4 belief initializations
+#  3 graph regimes
 for SEED in 1 2 3 4 5; do
   SEED_DIRNAME="${SEED_LABEL[$SEED]}"
   SEED_DIR="${RESULTS_ROOT}/${SEED_DIRNAME}"
