@@ -1,6 +1,6 @@
-Credibility & Influence Simulation
+Strength of Weak Ties Simulation
 
-This readme explains how to run the credibility + influence experiment codebase.
+This readme explains how to run the strength of weak ties experiment codebase.
 First, download and extract the zip file. Then cd into its root directory.
 
 Create and activate a virtual environment:
