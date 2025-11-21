@@ -176,7 +176,7 @@ class SocialBeliefModel(Model):
                 "mean_belief": lambda m: float(np.mean([ag.belief for ag in m.agents])),
                 "polarization_var": lambda m: float(np.var([ag.belief for ag in m.agents])),
                 "share_extremes": lambda m: float(
-                    np.mean([abs(ag.belief) >= 0.8 for ag in m.agents])
+                    np.mean([abs(ag.belief) >= 0.9 for ag in m.agents])
                 ),
                 "assortativity": lambda m: assortativity_by_belief_bins(
                     m.G, {ag.node_id: ag.belief for ag in m.agents}
