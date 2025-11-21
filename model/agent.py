@@ -32,7 +32,6 @@ class SocialAgent(Agent):
             return random.sample(nbrs, k=min(k, len(nbrs)))
 
         # Global exposure with similarity-biased sampling ("feed")
-        # p(i sees j) ∝ exp(beta * similarity), similarity = 1 - |bi - bj|
         if regime == "curated":
             beta = self.model.beta
             all_nodes = list(G.nodes)
@@ -53,7 +52,7 @@ class SocialAgent(Agent):
         # Fallback: no exposure
         return []
 
-    # --- Update rule per step ---
+    # Update rule per step
     def step(self):
         peers = self.sample_exposures()
         if not peers:
@@ -89,9 +88,7 @@ class SocialAgent(Agent):
         new_belief = self.belief + (1.0 - self.stubbornness) * (target - self.belief)
         self.belief = clip_belief(new_belief)
 
-        # ------------------------------------------------------------------
         # Dynamic Influence Update
-        # ------------------------------------------------------------------
         movement = 0.0
         for ag in close_peer_agents:
             # high score if neighbor is close to this agent's belief
@@ -103,4 +100,3 @@ class SocialAgent(Agent):
         # Exponential moving average: 70% old influence, 30% new signal
         alpha = 0.7
         self.influence = alpha * self.influence + (1 - alpha) * movement
-        # ------------------------------------------------------------------

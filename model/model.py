@@ -120,10 +120,7 @@ class SocialBeliefModel(Model):
         high_cred_agents = set(self.random.sample(range(N), num_high_cred))
 
 
-
-        # ------------------------------------------------------
         # Create agents and assign continuous credibility
-        # ------------------------------------------------------
         for i in range(N):
             a = SocialAgent(
                 model=self,
@@ -150,10 +147,7 @@ class SocialBeliefModel(Model):
             # Place agent on graph
             self.grid.place_agent(a, i)
 
-
-        # ------------------------------------------------------------------------------
-        # Data Collection (Updated for Ethan Experiment)
-        # ------------------------------------------------------------------------------
+        # Data Collection
         self.datacollector = DataCollector(
             model_reporters={
                 "step": lambda m: m.step_count,
@@ -170,9 +164,7 @@ class SocialBeliefModel(Model):
                 # Extremism
                 "share_extremes": lambda m: float(np.mean([abs(ag.belief) >= 0.9 for ag in m.agents])),
 
-                # -----------------
                 # Influence metrics
-                # -----------------
                 "mean_influence": lambda m: float(np.mean([ag.influence for ag in m.agents])),
                 "var_influence": lambda m: float(np.var([ag.influence for ag in m.agents])),
                 "mean_cred_weighted_influence": lambda m: float(
@@ -197,12 +189,11 @@ class SocialBeliefModel(Model):
                 "credibility": lambda a: a.credibility,
             }
         )
-        # ------------------------------------------------------------------------------
 
         # Maintain original step indexing behavior
         self.step_count = 0
 
-    # ---------- Graph builders ----------
+    # Graph builders
     def _make_graph(self) -> nx.Graph:
         if self.graph_regime == "mixed":
             # Small-world mixed network
@@ -213,12 +204,11 @@ class SocialBeliefModel(Model):
         if self.graph_regime == "echo":
             # Stochastic block model: two polarized blocks + moderates block,
             # with high intra-block and low inter-block connectivity.
-            # Block sizes roughly match mixture_beliefs() weights
             sizes = [int(0.35 * self.N), int(0.30 * self.N), self.N]
             sizes[2] = self.N - sizes[0] - sizes[1]
             # Intra >> inter probabilities
             p_in = 0.12
-            p_mid = 0.08  # inside moderates
+            p_mid = 0.08
             p_out = 0.01
             probs = [
                 [p_in,  p_out, p_out],
@@ -226,22 +216,17 @@ class SocialBeliefModel(Model):
                 [p_out, p_out, p_in],
             ]
             G = nx.stochastic_block_model(sizes, probs, seed=None)
-            # Relabel nodes to 0..N-1
             mapping = {old: i for i, old in enumerate(G.nodes())}
             G = nx.relabel_nodes(G, mapping)
             return G
 
         if self.graph_regime == "curated":
-            # Underlying social graph (who you might occasionally DM etc.)
-            # but exposure comes from global, similarity-biased feed
             p = min(1.0, self.avg_degree / (self.N - 1))
             return nx.erdos_renyi_graph(self.N, p)
 
         raise ValueError(f"Unknown graph regime: {self.graph_regime}")
 
     def agent_belief(self, node_id: int) -> float:
-        # In NetworkGrid, multiple agents can occupy a node, but we place 1:1
-        # So, find the agent at node id == node_id
         cell_agents = self.grid.get_cell_list_contents([node_id])
         if not cell_agents:
             return 0.0

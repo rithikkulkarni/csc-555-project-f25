@@ -32,8 +32,7 @@ def mixture_beliefs_asymmetric_shift(n: int, seed: Optional[int] = None) -> np.n
 
     rng = np.random.default_rng(seed)
 
-    # Change mixture weights if desired
-    weights = np.array([0.30, 0.30, 0.40])  # mild asymmetry
+    weights = np.array([0.30, 0.30, 0.40])
     choices = rng.choice([0, 1, 2], size=n, p=weights)
 
     vals = np.zeros(n)
@@ -76,16 +75,12 @@ def skewed_beliefs_positive(n: int, seed: Optional[int] = None) -> np.ndarray:
 
     rng = np.random.default_rng(seed)
 
-    # Beta distribution to induce skew
-    raw = rng.beta(a=2.5, b=1.8, size=n)  # beta in [0,1], slightly right-skewed
+    raw = rng.beta(a=2.5, b=1.8, size=n)
 
-    # Map [0,1] to [-1,1]
     vals = 2 * raw - 1
 
-    # Shift the mean + compress moderate region
-    vals = 0.6 * vals + 0.3  # center around 0.3
+    vals = 0.6 * vals + 0.3
 
-    # Clip
     vals = np.clip(vals, -1, 1)
     return vals
 
@@ -94,13 +89,11 @@ def assortativity_by_belief_bins(G: nx.Graph, beliefs: Dict[int, float], bins: i
     if G.number_of_nodes() < 2 or G.number_of_edges() == 0:
         return float("nan")
 
-    # Assign categories first
     for n in G.nodes:
         b = beliefs.get(n, 0.0)
         cat = int(np.digitize(b, np.linspace(-1, 1, bins + 1)) - 1)
         G.nodes[n]["belief_cat"] = cat
 
-    # Compute assortativity after all assignments
     try:
         return nx.attribute_assortativity_coefficient(G, "belief_cat")
     except Exception:

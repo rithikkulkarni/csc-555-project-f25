@@ -19,13 +19,13 @@ seed_names = [
     "fifth_seed",
 ]
 
-# Credibility modes (must match the folder names created by the batch script)
+# Credibility modes
 credibility_modes = [
     "discrete_credibility",
     "normally_distributed_credibility",
 ]
 
-# Belief types and pretty names
+# Belief types
 belief_types = {
     "type1": "Trimodal",
     "type2": "Asymmetric Shift Right",
@@ -36,7 +36,7 @@ belief_types = {
 # Regimes
 regimes = ["mixed", "echo", "curated"]
 
-# Metrics from the credibility/influence experiment
+# Metrics from the experiment
 METRIC_LABELS = {
     "mean_belief": "Mean Belief",
     "polarization_var": "Belief Variance (Polarization)",
@@ -63,7 +63,6 @@ def plot_for_belief_and_cred(btype_key: str, cred_mode: str):
     fig, axes = plt.subplots(3, 3, figsize=(16, 12))
     axes = axes.flatten()
 
-    # belief type number from key: "type1" -> "1", etc.
     belief_num = btype_key[-1]
 
     for i, (metric, label) in enumerate(METRIC_LABELS.items()):
@@ -102,8 +101,7 @@ def plot_for_belief_and_cred(btype_key: str, cred_mode: str):
                     label=regime.capitalize(),
                     linewidth=2,
                 )
-
-                # Shaded ±1 std band
+                
                 ax.fill_between(
                     grouped.index,
                     grouped[mean_col] - grouped[std_col],
