@@ -1,6 +1,6 @@
-Credibility & Influence Simulation
+Control Experiment Simulation
 
-This readme explains how to run the credibility + influence experiment codebase.
+This readme explains how to run the control experiment codebase.
 First, download and extract the zip file. Then cd into its root directory.
 
 Create and activate a virtual environment:
@@ -25,21 +25,17 @@ Install required Python dependencies:
 The batch script sweeps over:
 
 - 5 random seeds (1–5)
-- 3 weak-tie fractions:
-      • 0.05
-      • 0.10
-      • 0.20
 - 4 belief initialization modes (type1, type2, type3, type4)
 - 3 graph regimes:
       • mixed
       • echo
       • curated
 
-This produces 180 simulations.
+This produces 60 simulations.
 
 Run the experiment:
 
-    ./run_granovetter.sh
+    ./run_control.sh
 
 -----------------------------------------------------
 
@@ -47,17 +43,12 @@ After running the script, results will appear under:
 
 results/
   first_seed/
-    granovetter_5_percent_runs/
-      type_1_mixed_experiment_metrics.csv
-      type_1_echo_experiment_metrics.csv
-      type_1_curated_experiment_metrics.csv
+    control_experiment/
+      type_1_mixed_control_metrics.csv
+      type_1_echo_control_metrics.csv
       ...
-    granovetter_10_percent_runs/
-    granovetter_20_percent_runs/
   second_seed/
-  third_seed/
-  fourth_seed/
-  fifth_seed/
+  ...
 
 Each file contains aggregated model-level metrics for a single simulation run.
 
@@ -65,7 +56,7 @@ Each file contains aggregated model-level metrics for a single simulation run.
 
 After simulations complete, run:
 
-    python plot_granovetter_results.py
+    python plot_results.py
 
 This script:
 
@@ -74,13 +65,10 @@ This script:
 - Plots curves for each regime (mixed/echo/curated)
 - Saves charts to:
 
-plotted_project_results/
-  granovetter_5_percent_runs/
-    type1_granovetter_5_percent.png
-    type2_granovetter_5_percent.png
-    ...
-  granovetter_10_percent_runs/
-  granovetter_20_percent_runs/
+plotted_project_results/control_experiment/
+  type1_control_experiment.png
+  type2_control_experiment.png
+  ...
 
 Each PNG summarizes all metrics for that belief type + credibility mode.
 
