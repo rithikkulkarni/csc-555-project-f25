@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Root directory for all results (must match configs.granovetter_configs.RESULTS_ROOT)
+# Root directory for all results
 RESULTS_ROOT="results"
 
-# Map seed number -> folder name
+# Names for seed folders in results/
 declare -A SEED_LABEL
 SEED_LABEL[1]="first_seed"
 SEED_LABEL[2]="second_seed"
@@ -12,7 +12,7 @@ SEED_LABEL[3]="third_seed"
 SEED_LABEL[4]="fourth_seed"
 SEED_LABEL[5]="fifth_seed"
 
-# Weak tie fractions and their corresponding folder labels
+# Weak tie fractions
 WEAK_FRACS=("0.05" "0.10" "0.20")
 
 weak_frac_label() {
@@ -24,11 +24,11 @@ weak_frac_label() {
   esac
 }
 
-# Main loops:
-#  - 5 seeds
-#  - 3 weak tie fractions
-#  - 4 belief initializations
-#  - 3 graph regimes
+# Loops:
+#  5 seeds
+#  3 weak tie fractions
+#  4 belief initializations
+#  3 graph regimes
 for SEED in 1 2 3 4 5; do
   SEED_DIRNAME="${SEED_LABEL[$SEED]}"
   SEED_DIR="${RESULTS_ROOT}/${SEED_DIRNAME}"
@@ -46,7 +46,6 @@ for SEED in 1 2 3 4 5; do
         echo "Running seed=${SEED}, weak_tie_fraction=${WEAK_FRAC}, belief_init=${BELIEF_INIT}, regime=${REGIME}"
         echo "  -> ${METRICS_FILE}"
 
-        # Pass parameters through environment variables into Python
         SEED_ENV="${SEED}" \
         GRAPH_ENV="${REGIME}" \
         BELIEF_INIT_ENV="${BELIEF_INIT}" \

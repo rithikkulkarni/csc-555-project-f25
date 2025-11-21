@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 RESULTS_DIR = "results"
 
-# Explicit seed folders
+# Seed folders
 seed_names = [
     "first_seed",
     "second_seed",
@@ -29,10 +29,10 @@ belief_types = {
     "type4": "Right Skewed",
 }
 
-# Regimes used in the experiment
+# Regimes
 regimes = ["mixed", "echo", "curated"]
 
-# Metrics to visualize (all numeric except regime + weak_tie_fraction)
+# Metrics to visualize
 METRIC_LABELS = {
     "mean_belief": "Mean Belief",
     "polarization_var": "Belief Variance",
@@ -59,7 +59,7 @@ def plot_for_belief_and_weak_ties(btype_key: str, weak_mode_dir: str):
     fig, axes = plt.subplots(4, 3, figsize=(18, 14))
     axes = axes.flatten()
 
-    belief_num = btype_key[-1]   # "type1" -> "1"
+    belief_num = btype_key[-1]
 
     for i, (metric, label) in enumerate(METRIC_LABELS.items()):
         ax = axes[i]
@@ -67,7 +67,7 @@ def plot_for_belief_and_weak_ties(btype_key: str, weak_mode_dir: str):
         for regime in regimes:
             dfs = []
 
-            # ✓ Explicitly iterate over the 5 seed folders
+            # Iterate over the 5 seed folders
             for seed in seed_names:
 
                 filename = f"type_{belief_num}_{regime}_experiment_metrics.csv"
@@ -95,7 +95,7 @@ def plot_for_belief_and_weak_ties(btype_key: str, weak_mode_dir: str):
                     label=regime.capitalize(), linewidth=2
                 )
 
-                # plot ± std shaded region
+                # plot shaded region for standard deviation
                 ax.fill_between(
                     grouped.index,
                     grouped[mean_col] - grouped[std_col],
@@ -124,8 +124,7 @@ def plot_for_belief_and_weak_ties(btype_key: str, weak_mode_dir: str):
 
     print(f"Saved: {out_path}")
 
-
-# Generate all plots
+# Make all plots
 for weak_mode_dir in weak_tie_modes:
     for btype in belief_types:
         plot_for_belief_and_weak_ties(btype, weak_mode_dir)

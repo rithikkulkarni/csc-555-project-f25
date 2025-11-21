@@ -6,7 +6,8 @@ def clip_belief(x: float) -> float:
     return max(-1.0, min(1.0, x))
 
 def mixture_beliefs(n: int, seed: Optional[int] = None) -> np.ndarray:
-    """Generate a trimodal belief distribution: extremes and moderates.
+    """
+    Generate a trimodal belief distribution: extremes and moderates.
     Modes near -0.8, 0.0, +0.8 with mixing weights (0.35, 0.30, 0.35).
     """
     rng = np.random.default_rng(seed)
@@ -31,8 +32,6 @@ def mixture_beliefs_asymmetric_shift(n: int, seed: Optional[int] = None) -> np.n
     """
 
     rng = np.random.default_rng(seed)
-
-    # Change mixture weights if desired
     weights = np.array([0.30, 0.30, 0.40])  # mild asymmetry
     choices = rng.choice([0, 1, 2], size=n, p=weights)
 
@@ -75,17 +74,14 @@ def skewed_beliefs_positive(n: int, seed: Optional[int] = None) -> np.ndarray:
     """
 
     rng = np.random.default_rng(seed)
-
-    # Beta distribution to induce skew
     raw = rng.beta(a=2.5, b=1.8, size=n)  # beta in [0,1], slightly right-skewed
 
     # Map [0,1] to [-1,1]
     vals = 2 * raw - 1
 
-    # Shift the mean + compress moderate region
-    vals = 0.6 * vals + 0.3  # center around 0.3
+    # Shift the mean and compress the region (centered around 0.3)
+    vals = 0.6 * vals + 0.3
 
-    # Clip
     vals = np.clip(vals, -1, 1)
     return vals
 
@@ -100,7 +96,7 @@ def assortativity_by_belief_bins(G: nx.Graph, beliefs: Dict[int, float], bins: i
         cat = int(np.digitize(b, np.linspace(-1, 1, bins + 1)) - 1)
         G.nodes[n]["belief_cat"] = cat
 
-    # Compute assortativity after all assignments
+    # Compute assortativity after all the assignments
     try:
         return nx.attribute_assortativity_coefficient(G, "belief_cat")
     except Exception:
