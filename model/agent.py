@@ -49,55 +49,33 @@ class SocialAgent(Agent):
         # Fallback: no exposure
         return []
 
-    # --- Update rule per step ---
+        # --- Update rule per step (CONTROL: no tie-strength logic) ---
     def step(self):
+        # Sample exposure set according to the regime
         peers = self.sample_exposures()
         if not peers:
             return
 
-        G = self.model.G
-
-        # Collect (belief, tie_strength) for peers
+        # Collect beliefs of peers within tolerance
         close_beliefs = []
-        weights = []
-
         for pid in peers:
             peer_belief = self.model.agent_belief(pid)
             # Bounded confidence filter
             if abs(peer_belief - self.belief) <= self.tolerance:
-                # Handle curated regime where there may be no edge:
-                edge_data = G.get_edge_data(self.node_id, pid, default=None)
-                if edge_data is not None:
-                    tie_w = float(edge_data.get("tie_strength", 1.0))
-
-                    # --- NEW: count this as a weak/strong tie activation ---
-                    if np.isclose(tie_w, self.model.weak_tie_weight):
-                        self.model.weak_tie_activations += 1
-                    else:
-                        self.model.strong_tie_activations += 1
-                    # -------------------------------------------------------
-                else:
-                    # If no edge exists (e.g., curated exposure), treat as baseline weight
-                    tie_w = 1.0
-                    # you can choose NOT to count these as weak/strong activations
-
                 close_beliefs.append(peer_belief)
-                weights.append(tie_w)
 
+        # If no peers pass the tolerance filter, do nothing
         if not close_beliefs:
             return
 
-        weights = np.array(weights, dtype=float)
-        # avoid division by zero in pathological cases
-        if weights.sum() <= 0:
-            mean_peer = float(np.mean(close_beliefs))
-        else:
-            probs = weights / weights.sum()
-            mean_peer = float(np.dot(probs, np.array(close_beliefs, dtype=float)))
+        # In the control model, all tolerated peers are weighted equally
+        close_beliefs_arr = np.array(close_beliefs, dtype=float)
+        mean_peer = float(np.mean(close_beliefs_arr))
 
-        # DeGroot-style target: self vs weighted neighbors
+        # DeGroot-style target: blend self and peer mean
         target = (1.0 - self.openness) * self.belief + self.openness * mean_peer
 
         # Stubbornness damps motion toward target
         new_belief = self.belief + (1.0 - self.stubbornness) * (target - self.belief)
         self.belief = clip_belief(new_belief)
+

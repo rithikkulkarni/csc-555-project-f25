@@ -10,7 +10,7 @@ from mesa.datacollection import DataCollector
 from .agent import SocialAgent
 from .utils import mixture_beliefs, mixture_beliefs_asymmetric_shift, mixture_beliefs_asymmetric_extremists, skewed_beliefs_positive, clip_belief, assortativity_by_belief_bins
 
-from configs.granovetter_configs import (
+from configs.control_configs import (
     BELIEF_INITIALIZATION,
     GRAPH_TYPE,
     STEPS,
@@ -23,9 +23,6 @@ from configs.granovetter_configs import (
     TOLERANCE_JITTER,
     STUBBORNNESS,
     NUM_AGENTS,
-    STRONG_TIE_WEIGHT,
-    WEAK_TIE_WEIGHT,
-    WEAK_TIE_FRACTION,
 )
 
 # -------------------------------------------------------------------
@@ -109,9 +106,6 @@ class SocialBeliefModel(Model):
         k_exposures: int = K_EXPOSURES,
         beta: float = BETA, # similarity bias for curated feeds
         belief_initialization: int = BELIEF_INITIALIZATION,
-        strong_tie_weight: float = STRONG_TIE_WEIGHT,
-        weak_tie_weight: float = WEAK_TIE_WEIGHT,
-        weak_tie_fraction: float = WEAK_TIE_FRACTION,
     ):
         # Mesa 3.x requires explicit super init; seed handled here
         super().__init__(seed=seed)
@@ -127,9 +121,6 @@ class SocialBeliefModel(Model):
         self.avg_degree = avg_degree
         self.k_exposures = k_exposures
         self.beta = beta
-        self.strong_tie_weight = strong_tie_weight
-        self.weak_tie_weight = weak_tie_weight
-        self.weak_tie_fraction = weak_tie_fraction
         self.weak_tie_activations = 0
         self.strong_tie_activations = 0
 
@@ -182,23 +173,6 @@ class SocialBeliefModel(Model):
                     m.G, {ag.node_id: ag.belief for ag in m.agents}
                 ),
                 "regime": lambda m: m.graph_regime,
-
-                # --- New Granovetter-focused metrics ---
-                "weak_tie_fraction": lambda m: compute_weak_tie_fraction(m),
-                "weak_edge_disagreement": lambda m: edge_disagreement(m, use_weak=True),
-                "strong_edge_disagreement": lambda m: edge_disagreement(m, use_weak=False),
-                "inter_cluster_gap": lambda m: inter_cluster_gap(m),
-                "weak_tie_activations": lambda m: m.weak_tie_activations,
-                "strong_tie_activations": lambda m: m.strong_tie_activations,
-                "weak_activation_share": lambda m: (
-                    m.weak_tie_activations
-                    / (m.weak_tie_activations + m.strong_tie_activations)
-                    if (m.weak_tie_activations + m.strong_tie_activations) > 0
-                    else float("nan")
-                ),
-                "adoption_share": lambda m: float(
-                    np.mean([ag.belief > 0.5 for ag in m.agents])
-                ),
             },
             agent_reporters={"belief": lambda a: a.belief},
         )
@@ -214,10 +188,6 @@ class SocialBeliefModel(Model):
             # Small-world mixed network: Watts–Strogatz
             k = max(2, self.avg_degree - (self.avg_degree % 2))
             G = nx.watts_strogatz_graph(self.N, k=k, p=0.15)
-
-            # IMPORTANT: do NOT assign tie_strengths here.
-            # We will enforce the global weak_tie_fraction below.
-            G = self._assign_tie_strengths_by_fraction(G)
             return G
 
         if self.graph_regime == "echo":
@@ -236,51 +206,19 @@ class SocialBeliefModel(Model):
             mapping = {old: i for i, old in enumerate(G.nodes())}
             G = nx.relabel_nodes(G, mapping)
 
-            # Track block boundaries on the model for later metrics
+            # Track block boundaries on the model for later metrics (if needed)
             block_bounds = np.cumsum(sizes)  # e.g., [b0, b1, b2 == N]
             self.block_bounds = block_bounds
 
-            # NOTE: We no longer set intra-block strong / inter-block weak here.
-            # Instead, we assign weak ties globally to match weak_tie_fraction.
-            G = self._assign_tie_strengths_by_fraction(G)
             return G
 
         if self.graph_regime == "curated":
             # Simple Erdős–Rényi underlying graph
             p = min(1.0, self.avg_degree / (self.N - 1))
             G = nx.erdos_renyi_graph(self.N, p)
-
-            # Again, we let _assign_tie_strengths_by_fraction decide which edges are weak.
-            G = self._assign_tie_strengths_by_fraction(G)
             return G
 
         raise ValueError(f"Unknown graph regime: {self.graph_regime}")
-
-    
-    def _assign_tie_strengths_by_fraction(self, G: nx.Graph):
-        """
-        Rewrites tie_strength values so that a user-defined fraction of edges
-        are weak ties. Useful for Granovetter experiments.
-        """
-        edges = list(G.edges())
-        total = len(edges)
-        if total == 0:
-            return G
-
-        # Number of desired weak ties
-        target_weak = int(self.weak_tie_fraction * total)
-
-        # Shuffle edges and assign weak ties to a random subset
-        np.random.shuffle(edges)
-        weak_edges = set(edges[:target_weak])
-
-        for u, v in G.edges():
-            if (u, v) in weak_edges or (v, u) in weak_edges:
-                G[u][v]["tie_strength"] = float(self.weak_tie_weight)
-            else:
-                G[u][v]["tie_strength"] = float(self.strong_tie_weight)
-
-        return G
 
 
     # ---------- Utilities ----------

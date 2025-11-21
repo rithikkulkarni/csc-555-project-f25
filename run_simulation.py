@@ -1,5 +1,5 @@
 from model.model import SocialBeliefModel
-from configs.granovetter_configs import (
+from configs.control_configs import (
     GRAPH_TYPE,
     BELIEF_INITIALIZATION,
     NUM_AGENTS,
@@ -10,10 +10,7 @@ from configs.granovetter_configs import (
     OPENNESS,
     TOLERANCE,
     TOLERANCE_JITTER,
-    STUBBORNNESS,
-    STRONG_TIE_WEIGHT,
-    WEAK_TIE_WEIGHT,
-    WEAK_TIE_FRACTION,
+    STUBBORNNESS
 )
 
 m = SocialBeliefModel(
@@ -28,10 +25,7 @@ m = SocialBeliefModel(
     tolerance_jitter=TOLERANCE_JITTER,
     k_exposures=K_EXPOSURES,
     beta=BETA,
-    belief_initialization=BELIEF_INITIALIZATION,
-    strong_tie_weight=STRONG_TIE_WEIGHT,
-    weak_tie_weight=WEAK_TIE_WEIGHT,
-    weak_tie_fraction=WEAK_TIE_FRACTION,
+    belief_initialization=BELIEF_INITIALIZATION
 )
 
 df, _ = m.run()
