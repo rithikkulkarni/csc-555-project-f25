@@ -37,7 +37,7 @@ The batch script sweeps over:
 
 This produces 180 simulations.
 
-Run the experiment:
+Run the experiment (Through Git Bash or some Linux Shell):
 
     ./run_granovetter.sh
 
