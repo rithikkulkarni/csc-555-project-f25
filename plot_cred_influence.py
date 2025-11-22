@@ -128,7 +128,7 @@ def plot_for_belief_and_cred(btype_key: str, cred_mode: str):
     print(f"Saved: {out_path}")
 
 
-# Main loop: all credibility modes × all belief types
+# Main loop: all credibility modes x all belief types
 for cred_mode in credibility_modes:
     for btype in belief_types.keys():
         plot_for_belief_and_cred(btype, cred_mode)

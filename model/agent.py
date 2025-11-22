@@ -8,7 +8,7 @@ from .utils import clip_belief
 class SocialAgent(Agent):
     def __init__(self, model, node_id, belief, tolerance, openness, stubbornness):
         super().__init__(model)
-        self.node_id = int(node_id) # graph node this agent occupies
+        self.node_id = int(node_id) # graph node that this agent occupies
         self.belief = float(belief) # current opinion in [-1, 1]
         self.tolerance = float(tolerance) # max distance they'll consider
         self.openness = float(openness) # weight put on peers vs self
@@ -24,14 +24,14 @@ class SocialAgent(Agent):
         k = self.model.k_exposures
         regime = self.model.graph_regime
 
-        # Local neighborhood exposure (who their edges connect you to)
+        # Local exposure
         if regime in ("echo", "mixed"):
             nbrs = list(G.neighbors(self.node_id))
             if not nbrs:
                 return []
             return random.sample(nbrs, k=min(k, len(nbrs)))
 
-        # Global exposure with similarity-biased sampling ("feed")
+        # Global exposure with similarity-biased sampling
         if regime == "curated":
             beta = self.model.beta
             all_nodes = list(G.nodes)
@@ -43,16 +43,15 @@ class SocialAgent(Agent):
              # similarity = 1 - distance in belief
             sims = np.array([1.0 - abs(myb - self.model.agent_belief(nid)) for nid in candidates])
             weights = np.exp(beta * sims)
-            # # softmax-like weighting
+            # weighting similar to softmax
             weights = weights + 1e-9
             probs = weights / weights.sum()
             k_eff = min(k, len(candidates))
             return list(np.random.choice(candidates, size=k_eff, replace=False, p=probs))
 
-        # Fallback: no exposure
+        # Fallback
         return []
 
-    # Update rule per step
     def step(self):
         peers = self.sample_exposures()
         if not peers:
@@ -73,18 +72,17 @@ class SocialAgent(Agent):
         if not close_peer_agents:
             return
 
-        # Credibility × Influence weighting
+        # Credibility x Influence weighting
         weights = np.array([ag.influence * ag.credibility for ag in close_peer_agents])
         weights = weights / weights.sum()
 
         # Weighted peer belief
         mean_peer = float(np.sum([ag.belief * w for ag, w in zip(close_peer_agents, weights)]))
 
-        # DeGroot update with stubbornness
-        # target belief = blend of own belief and peer mean
+        # DeGroot with stubbornness
         target = (1.0 - self.openness) * self.belief + self.openness * mean_peer
        
-        # Move toward target slowed by stubbornness
+        # Move toward target, slowed by stubbornness
         new_belief = self.belief + (1.0 - self.stubbornness) * (target - self.belief)
         self.belief = clip_belief(new_belief)
 

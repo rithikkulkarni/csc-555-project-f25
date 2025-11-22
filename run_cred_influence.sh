@@ -4,7 +4,6 @@ set -euo pipefail
 # Root directory for all results (keep matching your config)
 RESULTS_ROOT="results"
 
-# Map seed number -> folder name
 declare -A SEED_LABEL=(
   [1]="first_seed"
   [2]="second_seed"
@@ -14,15 +13,16 @@ declare -A SEED_LABEL=(
 )
 
 # Credibility distribution modes
-# cred_distribution = 1 -> continuous credibility (normal distribution)
-# cred_distribution = 2 -> discrete high/low credibility
 declare -A CRED_MODE=(
   [1]="normally_distributed_credibility"
   [2]="discrete_credibility"
 )
 
 # Experiment Sweep
-# 5 seeds × 2 credibility distributions × 4 belief inits × 3 regimes
+#   5 seeds
+#   2 credibility distributions 
+#   4 belief inits
+#   3 regimes
 for SEED in 1 2 3 4 5; do
   SEED_DIRNAME="${SEED_LABEL[$SEED]}"
   SEED_DIR="${RESULTS_ROOT}/${SEED_DIRNAME}"

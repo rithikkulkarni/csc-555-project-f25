@@ -196,8 +196,7 @@ class SocialBeliefModel(Model):
     # Graph builders
     def _make_graph(self) -> nx.Graph:
         if self.graph_regime == "mixed":
-            # Small-world mixed network
-            # Watts-Strogatz with moderate rewiring (diverse contacts)
+            # Small-world mixed network (Watts-Strogatz)
             k = max(2, self.avg_degree - (self.avg_degree % 2))
             return nx.watts_strogatz_graph(self.N, k=k, p=0.15)
 
@@ -249,7 +248,7 @@ class SocialBeliefModel(Model):
                 for a in self.agents:
                     agent_rows.append((t, a.unique_id, a.belief))
             self.step()
-        # Final collect
+        # Final collection
         self.datacollector.collect(self)
         model_df = self.datacollector.get_model_vars_dataframe().reset_index(drop=True)
         agent_df = None
