@@ -8,7 +8,7 @@ from .utils import clip_belief
 class SocialAgent(Agent):
     def __init__(self, model, node_id, belief, tolerance, openness, stubbornness):
         super().__init__(model)
-        self.node_id = int(node_id) # graph node this agent occupies
+        self.node_id = int(node_id) # graph node that this agent occupies
         self.belief = float(belief)
         self.tolerance = float(tolerance) # max distance they'll consider
         self.openness = float(openness) # weight put on peers vs self
@@ -35,16 +35,15 @@ class SocialAgent(Agent):
             myb = self.belief
             sims = np.array([1.0 - abs(myb - self.model.agent_belief(nid)) for nid in candidates])
             weights = np.exp(beta * sims)
-            # Slight smoothing to avoid zero-prob due to numeric underflow
+            # Smoothing
             weights = weights + 1e-9
             probs = weights / weights.sum()
             k_eff = min(k, len(candidates))
             return list(np.random.choice(candidates, size=k_eff, replace=False, p=probs))
 
-        # Fallback: no exposure
+        # Fallback
         return []
 
-        # Update rule per step
     def step(self):
         # Sample exposure set according to the regime
         peers = self.sample_exposures()
@@ -63,14 +62,14 @@ class SocialAgent(Agent):
         if not close_beliefs:
             return
 
-        # In the control model, all tolerated peers are weighted equally
+        # In our control, all edge weights are equal
         close_beliefs_arr = np.array(close_beliefs, dtype=float)
         mean_peer = float(np.mean(close_beliefs_arr))
 
-        # DeGroot-style target: blend self and peer mean
+        # DeGroot
         target = (1.0 - self.openness) * self.belief + self.openness * mean_peer
 
-        # Stubbornness damps motion toward target
+        # Stubbornness
         new_belief = self.belief + (1.0 - self.stubbornness) * (target - self.belief)
         self.belief = clip_belief(new_belief)
 

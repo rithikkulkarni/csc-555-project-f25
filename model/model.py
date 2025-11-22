@@ -67,7 +67,7 @@ def inter_cluster_gap(m: "SocialBeliefModel") -> float:
     between the most extreme cluster means: max(mean_block) - min(mean_block).
     Large gap = clusters remain far apart; small gap = clusters converged.
     """
-    # Only defined for echo regime where we tracked block_bounds
+    # Only defined for echo regime
     if not hasattr(m, "block_bounds") or m.block_bounds is None:
         return float("nan")
 
@@ -118,14 +118,14 @@ class SocialBeliefModel(Model):
         self.weak_tie_activations = 0
         self.strong_tie_activations = 0
 
-        # Will be set for echo regime to track block boundaries
+        # Will be set for echo regime
         self.block_bounds: Optional[np.ndarray] = None
 
         # Construct graph
         self.G = self._make_graph()
         self.grid = NetworkGrid(self.G)
 
-        # Initialize beliefs and heterogeneous tolerances
+        # Initialize beliefs
         if belief_initialization == 1:
             init_beliefs = mixture_beliefs(N, seed)
         elif belief_initialization == 2:
@@ -141,7 +141,7 @@ class SocialBeliefModel(Model):
             1.0,
         )
 
-        # Create agents and place them
+        # Create agents
         for i in range(N):
             a = SocialAgent(
                 model=self,
@@ -151,10 +151,10 @@ class SocialBeliefModel(Model):
                 openness=float(openness),
                 stubbornness=float(stubbornness),
             )
-            # Place on the graph node with same index
+            # Place agent on the graph node with same index
             self.grid.place_agent(a, i)
 
-        # Data collection: existing metrics
+        # Data collection
         self.datacollector = DataCollector(
             model_reporters={
                 "step": lambda m: m.step_count,
@@ -171,15 +171,12 @@ class SocialBeliefModel(Model):
             agent_reporters={"belief": lambda a: a.belief},
         )
 
-
-
-        # Maintain original step indexing behavior
         self.step_count = 0
 
     # Graph builders
     def _make_graph(self) -> nx.Graph:
         if self.graph_regime == "mixed":
-            # Small-world mixed network - Watts–Strogatz
+            # Small-world - Watts–Strogatz
             k = max(2, self.avg_degree - (self.avg_degree % 2))
             G = nx.watts_strogatz_graph(self.N, k=k, p=0.15)
             return G
@@ -212,27 +209,22 @@ class SocialBeliefModel(Model):
 
         raise ValueError(f"Unknown graph regime: {self.graph_regime}")
 
-
-    # Utilities
     def agent_belief(self, node_id: int) -> float:
-        # In NetworkGrid, multiple agents can occupy a node, but we place 1:1
-        # So, find the agent at node id == node_id
         cell_agents = self.grid.get_cell_list_contents([node_id])
         if not cell_agents:
             return 0.0
         return cell_agents[0].belief
 
-    # Simulation loop
     def step(self):
         self.datacollector.collect(self)
 
-        # Reset activation counters for the upcoming step
+        # Reset activation counters for the next step
         self.weak_tie_activations = 0
         self.strong_tie_activations = 0
 
         self.agents.shuffle_do("step")
 
-        # Maintain original counter
+        # Keep original counter
         self.step_count += 1
 
     def run(self, steps: Optional[int] = None, agent_log_path: Optional[str] = None) -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
@@ -244,7 +236,7 @@ class SocialBeliefModel(Model):
                 for a in self.agents:
                     agent_rows.append((t, a.unique_id, a.belief))
             self.step()
-        # Final collect
+        # Final collection
         self.datacollector.collect(self)
         model_df = self.datacollector.get_model_vars_dataframe().reset_index(drop=True)
         agent_df = None

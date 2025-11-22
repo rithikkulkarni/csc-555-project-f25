@@ -4,7 +4,6 @@ set -euo pipefail
 # Root directory for all results
 RESULTS_ROOT="results"
 
-# Map seed number -> folder name
 declare -A SEED_LABEL
 SEED_LABEL[1]="first_seed"
 SEED_LABEL[2]="second_seed"
@@ -32,7 +31,6 @@ for SEED in 1 2 3 4 5; do
       echo "Running CONTROL: seed=${SEED}, belief_init=${BELIEF_INIT}, regime=${REGIME}"
       echo "  -> ${METRICS_FILE}"
 
-      # Pass parameters through environment variables into Python
       SEED_ENV="${SEED}" \
       GRAPH_ENV="${REGIME}" \
       BELIEF_INIT_ENV="${BELIEF_INIT}" \
