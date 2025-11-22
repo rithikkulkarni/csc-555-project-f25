@@ -89,3 +89,6 @@ You can manually run a single simulation to test your setup with the command:
     python run_simulation.py
     
 This script will use the default parameters set in configs/granovetter_configs.py and then print the resulting metrics dataframe to the terminal.
+
+To run the cells inside plots.ipynb, seaborn needs to be installed:
+    pip install seaborn
