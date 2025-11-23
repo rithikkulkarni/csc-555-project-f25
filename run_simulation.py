@@ -29,4 +29,4 @@ m = SocialBeliefModel(
 )
 
 df, _ = m.run()
-print(df.head())
+print(df.head(301))
